@@ -215,6 +215,33 @@ app = FastAPI(title="WhatsApp Agent Backend")
 SESSION_DB = str(DATA_DIR / "sessions.db")
 SESSION_ID = "wa-agent"
 
+# ---------------------------------------------------------------------------
+# WebSocket origin allow-list (CSWSH protection)
+# ---------------------------------------------------------------------------
+# The backend binds to localhost, but ANY web page in ANY browser tab can open
+# a WebSocket to ws://127.0.0.1:8787 — so localhost binding alone does NOT stop
+# a malicious site from driving the agent (cross-site WebSocket hijacking).
+# Browsers set the Origin header honestly and a page cannot forge it, so we
+# only accept the handshake when Origin is our extension's page origin.
+_DEFAULT_ALLOWED_ORIGINS = {"https://web.whatsapp.com"}
+# Extra origins may be added via env (comma-separated) for development.
+ALLOWED_ORIGINS = _DEFAULT_ALLOWED_ORIGINS | {
+    o.strip()
+    for o in os.getenv("ALLOWED_WS_ORIGINS", "").split(",")
+    if o.strip()
+}
+
+
+def _origin_allowed(origin: str | None) -> bool:
+    # Chrome extension content scripts on web.whatsapp.com send that page's
+    # origin. chrome-extension:// origins (if any future caller uses them) are
+    # also trusted since only this user's installed extensions can send them.
+    if origin in ALLOWED_ORIGINS:
+        return True
+    if origin and origin.startswith("chrome-extension://"):
+        return True
+    return False
+
 
 # ---------------------------------------------------------------------------
 # WebSocket endpoint
@@ -223,9 +250,17 @@ SESSION_ID = "wa-agent"
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket) -> None:
+    # Reject cross-origin handshakes BEFORE accepting (CSWSH protection).
+    origin = ws.headers.get("origin")
+    if not _origin_allowed(origin):
+        logger.warning("Rejected WebSocket from disallowed origin: %r", origin)
+        # 1008 = policy violation. Close during handshake without accepting.
+        await ws.close(code=1008)
+        return
+
     await ws.accept()
     await bridge.register(ws)
-    logger.info("WebSocket accepted")
+    logger.info("WebSocket accepted (origin=%s)", origin)
 
     # Track the currently-running agent task so we don't overlap runs
     agent_task: asyncio.Task | None = None

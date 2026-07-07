@@ -12,6 +12,7 @@ Flow:
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import logging
@@ -153,76 +154,94 @@ async def transcribe_media(chat_id: str, message_id: str) -> str:
         if not api_key:
             raise RuntimeError("GEMINI_API_KEY is not set")
 
-        client = genai.Client(api_key=api_key)
+        # The Gemini SDK calls (upload, ACTIVE-status polling with time.sleep,
+        # generate_content, delete) are fully synchronous and can take ~60s for
+        # video. Run them in a worker thread so the asyncio event loop — and
+        # thus the WebSocket bridge (status updates, incoming frames) — stays
+        # responsive instead of freezing for the whole transcription.
+        transcript = await asyncio.to_thread(
+            _process_media_with_gemini, media_path, mimetype, media_type, api_key
+        )
 
-        gemini_file = None
-        try:
-            # Upload the media file
-            with open(media_path, "rb") as f:
-                gemini_file = client.files.upload(file=f, config={"mime_type": mimetype})
-
-            # Wait for file to become ACTIVE (crucial for video processing)
-            logger.info("Waiting for Gemini file %s to become ACTIVE...", gemini_file.name)
-            start_time = time.time()
-            timeout = 60  # Wait up to 60 seconds
-            while True:
-                status = client.files.get(name=gemini_file.name)
-                state = str(status.state).upper()
-                if "ACTIVE" in state:
-                    logger.info("File is ACTIVE after %.2f seconds", time.time() - start_time)
-                    break
-                elif "FAILED" in state:
-                    raise RuntimeError(f"Gemini file processing failed: {status}")
-                
-                if time.time() - start_time > timeout:
-                    raise RuntimeError(f"Timed out waiting for file to become ACTIVE. State: {state}")
-                
-                time.sleep(1)
-
-            # Request transcription/description
-            if "audio" in mimetype or media_type in ("ptt", "audio"):
-                prompt = "Transcribe this audio verbatim. Return only the transcription text, nothing else."
-            elif "image" in mimetype or media_type == "image":
-                prompt = "Describe this image in detail. If it contains text, transcribe the text verbatim."
-            else:
-                prompt = "Watch this video. Transcribe any spoken audio verbatim, and briefly describe any key visual action if relevant."
-            
-            media_model = os.getenv("MEDIA_MODEL", "gemini-2.5-flash")
-            response = client.models.generate_content(
-                model=media_model,
-                contents=[
-                    prompt,
-                    gemini_file,
-                ],
-            )
-
-            transcript = (response.text or "").strip()
-            if not transcript:
-                raise RuntimeError("Gemini returned empty response")
-
-            logger.info("Media processing complete (%d chars)", len(transcript))
-
-            # 5. Cache and return
-            cache[message_id] = transcript
-            _save_cache(cache)
-
-            return transcript
-        finally:
-            # Clean up local file
-            if media_path.exists():
-                try:
-                    media_path.unlink()
-                    logger.info("Deleted local media file: %s", media_path)
-                except Exception as e:
-                    logger.warning("Failed to delete local file %s: %s", media_path, e)
-
-            # Clean up Gemini file
-            if gemini_file:
-                try:
-                    client.files.delete(name=gemini_file.name)
-                    logger.info("Deleted remote Gemini file: %s", gemini_file.name)
-                except Exception as e:
-                    logger.warning("Failed to delete remote Gemini file %s: %s", gemini_file.name, e)
+        # 5. Cache and return
+        cache[message_id] = transcript
+        _save_cache(cache)
+        return transcript
     except Exception as e:
         logger.exception("Failed to process media %s: %s", message_id, e)
         raise
+
+
+def _process_media_with_gemini(
+    media_path: Path, mimetype: str, media_type: str, api_key: str
+) -> str:
+    """
+    Synchronous Gemini media processing: upload the file, wait until it's
+    ACTIVE, transcribe/describe it, then clean up both the local file and the
+    remote Gemini file. Blocking by design — call via asyncio.to_thread so its
+    time.sleep polling and network calls don't stall the event loop.
+    """
+    client = genai.Client(api_key=api_key)
+    gemini_file = None
+    try:
+        # Upload the media file
+        with open(media_path, "rb") as f:
+            gemini_file = client.files.upload(file=f, config={"mime_type": mimetype})
+
+        # Wait for file to become ACTIVE (crucial for video processing)
+        logger.info("Waiting for Gemini file %s to become ACTIVE...", gemini_file.name)
+        start_time = time.time()
+        timeout = 60  # Wait up to 60 seconds
+        while True:
+            status = client.files.get(name=gemini_file.name)
+            state = str(status.state).upper()
+            if "ACTIVE" in state:
+                logger.info("File is ACTIVE after %.2f seconds", time.time() - start_time)
+                break
+            elif "FAILED" in state:
+                raise RuntimeError(f"Gemini file processing failed: {status}")
+
+            if time.time() - start_time > timeout:
+                raise RuntimeError(f"Timed out waiting for file to become ACTIVE. State: {state}")
+
+            time.sleep(1)
+
+        # Request transcription/description
+        if "audio" in mimetype or media_type in ("ptt", "audio"):
+            prompt = "Transcribe this audio verbatim. Return only the transcription text, nothing else."
+        elif "image" in mimetype or media_type == "image":
+            prompt = "Describe this image in detail. If it contains text, transcribe the text verbatim."
+        else:
+            prompt = "Watch this video. Transcribe any spoken audio verbatim, and briefly describe any key visual action if relevant."
+
+        media_model = os.getenv("MEDIA_MODEL", "gemini-2.5-flash")
+        response = client.models.generate_content(
+            model=media_model,
+            contents=[
+                prompt,
+                gemini_file,
+            ],
+        )
+
+        transcript = (response.text or "").strip()
+        if not transcript:
+            raise RuntimeError("Gemini returned empty response")
+
+        logger.info("Media processing complete (%d chars)", len(transcript))
+        return transcript
+    finally:
+        # Clean up local file
+        if media_path.exists():
+            try:
+                media_path.unlink()
+                logger.info("Deleted local media file: %s", media_path)
+            except Exception as e:
+                logger.warning("Failed to delete local file %s: %s", media_path, e)
+
+        # Clean up Gemini file
+        if gemini_file:
+            try:
+                client.files.delete(name=gemini_file.name)
+                logger.info("Deleted remote Gemini file: %s", gemini_file.name)
+            except Exception as e:
+                logger.warning("Failed to delete remote Gemini file %s: %s", gemini_file.name, e)
