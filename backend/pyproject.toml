@@ -1,0 +1,12 @@
+[project]
+name = "whatsapp-agent"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "openai-agents[litellm]>=0.17,<1",
+    "fastapi[standard]>=0.115",
+    "python-dotenv>=1",
+    "google-genai>=1",
+    "scrapling[all]>=0.3",
+    "markdownify>=0.14",
+]
