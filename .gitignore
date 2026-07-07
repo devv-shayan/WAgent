@@ -1,0 +1,6 @@
+# Local data and secrets
+data/
+backend/.env
+backend/.venv/
+backend/__pycache__/
+*.log
