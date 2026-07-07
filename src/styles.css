@@ -1,0 +1,897 @@
+/* ==========================================================================
+   WA Chat Copilot - Design System
+   Matches WhatsApp Web's native styles and colors.
+   ========================================================================== */
+
+/* Custom Property Theme Definitions */
+#wa-backup-sidebar {
+  /* Default: Dark Theme (WhatsApp default for most users) */
+  --wab-bg-deeper: #0b141a;
+  --wab-bg-default: #111b21;
+  --wab-bg-panel: #202c33;
+  --wab-bg-hover: #2a3942;
+  --wab-bg-bubble-incoming: #202c33;
+  --wab-bg-bubble-outgoing: #005c4b;
+  --wab-border: #2a3942;
+  --wab-text-primary: #e9edef;
+  --wab-text-secondary: #8696a0;
+  --wab-text-muted: #667781;
+  
+  --wab-accent-teal: #00a884;
+  --wab-accent-teal-hover: #06cf9c;
+  --wab-accent-blue: #53bdeb;
+  --wab-accent-blue-hover: #6fcff5;
+  --wab-danger: #ea4335;
+  --wab-warning: #f59e0b;
+
+  /* Font Stack */
+  --wab-font-family: Segoe UI, Helvetica Neue, Helvetica, Lucida Grande, Arial, Ubuntu, sans-serif;
+
+  /* Spacing Scale */
+  --wab-space-xs: 4px;
+  --wab-space-sm: 8px;
+  --wab-space-md: 12px;
+  --wab-space-lg: 16px;
+  --wab-space-xl: 24px;
+  --wab-space-2xl: 32px;
+}
+
+/* Light Theme overrides when WhatsApp is in light mode */
+body:not(.dark):not(.theme-dark) #wa-backup-sidebar,
+html:not(.dark):not(.theme-dark) #wa-backup-sidebar {
+  --wab-bg-deeper: #f0f2f5;
+  --wab-bg-default: #ffffff;
+  --wab-bg-panel: #f0f2f5;
+  --wab-bg-hover: #e9edef;
+  --wab-bg-bubble-incoming: #ffffff;
+  --wab-bg-bubble-outgoing: #d9fdd3;
+  --wab-border: #e9edef;
+  --wab-text-primary: #111b21;
+  --wab-text-secondary: #667781;
+  --wab-text-muted: #8696a0;
+
+  --wab-accent-teal: #008069;
+  --wab-accent-teal-hover: #00a884;
+  --wab-accent-blue: #027eb5;
+  --wab-accent-blue-hover: #02628d;
+}
+
+/* Floating Export Button */
+#wa-backup-btn {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 99999;
+  padding: 10px 20px;
+  font-family: Segoe UI, Helvetica Neue, Helvetica, Lucida Grande, Arial, Ubuntu, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: #ffffff;
+  background-color: #00a884;
+  border: none;
+  border-radius: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  transition: background-color 0.15s, transform 0.1s;
+}
+/* Light mode page style override if the page body isn't dark */
+body:not(.dark):not(.theme-dark) #wa-backup-btn {
+  background-color: #008069;
+}
+body:not(.dark):not(.theme-dark) #wa-backup-btn:hover {
+  background-color: #00a884;
+}
+#wa-backup-btn:hover {
+  background-color: #06cf9c;
+}
+#wa-backup-btn:active {
+  transform: scale(0.97);
+}
+#wa-backup-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+/* Sidebar Container */
+#wa-backup-sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 400px;
+  height: 100vh;
+  background-color: var(--wab-bg-default);
+  border-left: 1px solid var(--wab-border);
+  box-shadow: -4px 0 24px rgba(11, 20, 26, 0.15);
+  z-index: 999999;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--wab-font-family);
+  color: var(--wab-text-primary);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: wab-slide-in-right 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes wab-slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* Sidebar Header */
+.wab-sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--wab-space-lg);
+  background-color: var(--wab-bg-deeper);
+  color: var(--wab-text-primary);
+  border-bottom: 1px solid var(--wab-border);
+}
+.wab-sidebar-title {
+  font-weight: 600;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: var(--wab-space-sm);
+}
+/* Subtle accent dot for AI instead of emojis */
+.wab-sidebar-title .wab-accent-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--wab-accent-blue);
+  display: inline-block;
+}
+.wab-sidebar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--wab-space-sm);
+}
+.wab-icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--wab-text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  padding: var(--wab-space-xs) 6px;
+  border-radius: 6px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wab-icon-btn:hover {
+  background-color: var(--wab-bg-hover);
+  color: var(--wab-text-primary);
+}
+#wab-sidebar-close {
+  font-size: 24px;
+  line-height: 1;
+}
+
+/* Sidebar Content Body */
+.wab-sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--wab-bg-default);
+}
+
+/* Settings / Configurations Section */
+.wab-section {
+  background-color: var(--wab-bg-panel);
+  border-bottom: 1px solid var(--wab-border);
+  padding: var(--wab-space-lg);
+  transition: all 0.2s ease;
+  display: block;
+}
+.wab-section.collapsed {
+  display: none;
+}
+.wab-section-title {
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--wab-text-secondary);
+  margin-bottom: var(--wab-space-md);
+}
+.wab-settings-group {
+  background-color: var(--wab-bg-default);
+  border: 1px solid var(--wab-border);
+  border-radius: 8px;
+  padding: var(--wab-space-md);
+  margin-bottom: var(--wab-space-sm);
+}
+.wab-settings-group:last-child {
+  margin-bottom: 0;
+}
+.wab-settings-group .wab-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--wab-space-sm);
+  margin: var(--wab-space-xs) 0;
+  font-size: 12.5px;
+  color: var(--wab-text-primary);
+}
+.wab-settings-group .wab-field input {
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 4px var(--wab-space-sm);
+  border: 1px solid var(--wab-border);
+  border-radius: 6px;
+  background-color: var(--wab-bg-panel);
+  color: var(--wab-text-primary);
+  outline: none;
+}
+.wab-settings-group .wab-field input:focus {
+  border-color: var(--wab-accent-teal);
+}
+.wab-settings-group .wab-hint {
+  font-size: 11px;
+  color: var(--wab-text-secondary);
+  margin: 4px 0 var(--wab-space-sm);
+}
+.wab-settings-group .wab-formats {
+  display: flex;
+  gap: var(--wab-space-md);
+  margin-bottom: var(--wab-space-sm);
+  font-size: 12.5px;
+}
+.wab-settings-group .wab-formats label {
+  display: flex;
+  align-items: center;
+  gap: var(--wab-space-xs);
+  cursor: pointer;
+  color: var(--wab-text-primary);
+}
+.wab-settings-group .wab-formats input[type="checkbox"] {
+  accent-color: var(--wab-accent-teal);
+}
+.wab-settings-group #wab-go {
+  width: 100%;
+  padding: 8px;
+  font-family: var(--wab-font-family);
+  font-weight: 500;
+  font-size: 13px;
+  color: #ffffff;
+  background-color: var(--wab-accent-teal);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.wab-settings-group #wab-go:hover {
+  background-color: var(--wab-accent-teal-hover);
+}
+.wab-settings-group #wab-go:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.wab-sub-title {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--wab-text-secondary);
+  margin-bottom: var(--wab-space-xs);
+}
+.wab-field-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wab-space-xs);
+  margin-bottom: var(--wab-space-md);
+}
+.wab-field-col:last-child {
+  margin-bottom: 0;
+}
+.wab-field-col input,
+.wab-field-col select {
+  font-family: inherit;
+  padding: 8px var(--wab-space-md);
+  border: 1px solid var(--wab-border);
+  border-radius: 8px;
+  background-color: var(--wab-bg-default);
+  color: var(--wab-text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.wab-field-col input:focus,
+.wab-field-col select:focus {
+  border-color: var(--wab-accent-teal);
+}
+
+/* Chat container */
+.wab-chat-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* Welcome view */
+.wab-welcome-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--wab-space-2xl) var(--wab-space-xl);
+  text-align: center;
+  flex: 1;
+}
+.wab-welcome-icon {
+  margin-bottom: var(--wab-space-md);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: var(--wab-bg-panel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+.wab-welcome-state h3 {
+  margin: 0 0 var(--wab-space-sm) 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--wab-text-primary);
+}
+.wab-welcome-state p {
+  margin: 0 0 var(--wab-space-xl) 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--wab-text-secondary);
+}
+.wab-welcome-state #wab-summarize {
+  background-color: var(--wab-accent-teal);
+  color: #ffffff;
+  font-family: inherit;
+  font-weight: 500;
+  padding: 10px 24px;
+  border-radius: 24px;
+  border: none;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: background-color 0.15s, transform 0.1s;
+}
+.wab-welcome-state #wab-summarize:hover {
+  background-color: var(--wab-accent-teal-hover);
+}
+.wab-welcome-state #wab-summarize:active {
+  transform: scale(0.98);
+}
+.wab-welcome-state #wab-summarize:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.wab-status {
+  min-height: 18px;
+  margin-top: var(--wab-space-md);
+  font-size: 12.5px;
+  color: var(--wab-text-secondary);
+  word-wrap: break-word;
+  font-weight: 500;
+}
+
+.wab-suggestions {
+  margin-top: var(--wab-space-2xl);
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--wab-space-sm);
+}
+.wab-suggest-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--wab-text-secondary);
+  text-align: left;
+  margin-bottom: 2px;
+}
+.wab-suggest-btn {
+  background-color: var(--wab-bg-panel);
+  border: 1px solid var(--wab-border);
+  border-radius: 18px;
+  padding: 8px 14px;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--wab-text-primary);
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.wab-suggest-btn:hover {
+  background-color: var(--wab-bg-hover);
+  border-color: var(--wab-text-secondary);
+}
+
+/* Chat Messages List */
+.wab-messages-list {
+  padding: var(--wab-space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--wab-space-md);
+  overflow-y: auto;
+  flex: 1;
+}
+.wab-chat-bubble {
+  max-width: 85%;
+  padding: 8px var(--wab-space-md);
+  border-radius: 7.5px;
+  font-size: 14.2px;
+  line-height: 1.45;
+  box-shadow: 0 1px 1px rgba(11, 20, 26, 0.08);
+  animation: wab-msg-slide-up 0.15s ease-out;
+  position: relative;
+}
+@keyframes wab-msg-slide-up {
+  from { transform: translateY(5px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.wab-chat-bubble.ai {
+  align-self: flex-start;
+  background-color: var(--wab-bg-bubble-incoming);
+  color: var(--wab-text-primary);
+  border-top-left-radius: 0px; /* Sharp corner mimics WA incoming bubble */
+  border: 1px solid var(--wab-border);
+}
+.wab-chat-bubble.user {
+  align-self: flex-end;
+  background-color: var(--wab-bg-bubble-outgoing);
+  color: var(--wab-text-primary);
+  border-top-right-radius: 0px; /* Sharp corner mimics WA outgoing bubble */
+}
+.wab-chat-bubble p {
+  margin: 0 0 var(--wab-space-sm) 0;
+}
+.wab-chat-bubble p:last-child {
+  margin-bottom: 0;
+}
+.wab-chat-bubble h1,
+.wab-chat-bubble h2,
+.wab-chat-bubble h3 {
+  margin: var(--wab-space-md) 0 6px 0;
+  font-weight: 600;
+  color: var(--wab-text-primary);
+  line-height: 1.3;
+}
+.wab-chat-bubble h1 { font-size: 16px; border-bottom: 1px solid var(--wab-border); padding-bottom: 4px; }
+.wab-chat-bubble h2 { font-size: 14.5px; }
+.wab-chat-bubble h3 { font-size: 13.5px; }
+.wab-chat-bubble strong {
+  font-weight: 600;
+  color: var(--wab-text-primary);
+}
+.wab-chat-bubble ul,
+.wab-chat-bubble ol {
+  margin: 0 0 var(--wab-space-sm) 0;
+  padding-left: 18px;
+}
+.wab-chat-bubble li {
+  margin-bottom: 4px;
+}
+
+/* AI Copilot Action Buttons inside Bubble */
+.wab-bubble-actions {
+  display: flex;
+  gap: var(--wab-space-sm);
+  margin-top: var(--wab-space-md);
+  border-top: 1px solid var(--wab-border);
+  padding-top: var(--wab-space-sm);
+}
+.wab-bubble-btn {
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  color: var(--wab-text-secondary);
+  cursor: pointer;
+  padding: 4px var(--wab-space-sm);
+  border-radius: 4px;
+  font-weight: 500;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.wab-bubble-btn:hover {
+  background-color: var(--wab-bg-hover);
+  color: var(--wab-text-primary);
+}
+
+/* Typing Indicator (Dot Loader) */
+.wab-chat-bubble.loading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--wab-text-secondary);
+  background-color: var(--wab-bg-bubble-incoming);
+  border-top-left-radius: 0px;
+  border: 1px solid var(--wab-border);
+  padding: 10px 14px;
+}
+.wab-chat-bubble.loading span {
+  font-size: 12.5px;
+}
+.wab-dot-loader {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: var(--wab-accent-blue);
+  animation: wab-dot-pulse 1.2s infinite both;
+}
+.wab-dot-loader:nth-child(2) { animation-delay: 0.2s; }
+.wab-dot-loader:nth-child(3) { animation-delay: 0.4s; }
+@keyframes wab-dot-pulse {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1.2); opacity: 1; }
+}
+
+/* Scrollbar customizations to match WhatsApp Web */
+.wab-sidebar-content::-webkit-scrollbar,
+.wab-messages-list::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.wab-sidebar-content::-webkit-scrollbar-thumb,
+.wab-messages-list::-webkit-scrollbar-thumb {
+  background-color: rgba(86, 103, 113, 0.2);
+  border-radius: 3px;
+}
+.wab-sidebar-content::-webkit-scrollbar-track,
+.wab-messages-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Chat Input Bar */
+.wab-chat-input-area {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--wab-space-sm);
+  padding: var(--wab-space-md) var(--wab-space-lg);
+  background-color: var(--wab-bg-deeper);
+  border-top: 1px solid var(--wab-border);
+}
+.wab-chat-input-area.hidden {
+  display: none !important;
+}
+.wab-chat-input-area textarea {
+  flex: 1;
+  border: 1px solid var(--wab-border);
+  border-radius: 8px;
+  padding: 8px var(--wab-space-md);
+  font-family: var(--wab-font-family);
+  font-size: 14.2px;
+  color: var(--wab-text-primary);
+  resize: none;
+  height: 20px;
+  max-height: 80px;
+  outline: none;
+  background-color: var(--wab-bg-default);
+  transition: border-color 0.15s;
+}
+.wab-chat-input-area textarea:focus {
+  border-color: var(--wab-accent-blue);
+}
+#wab-query-send {
+  background-color: var(--wab-accent-blue);
+  color: var(--wab-bg-deeper);
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s, transform 0.1s;
+}
+#wab-query-send:hover {
+  background-color: var(--wab-accent-blue-hover);
+}
+#wab-query-send:active {
+  transform: scale(0.95);
+}
+
+/* Status line relocated to sit directly above the chat input bar */
+#wa-backup-sidebar > .wab-status {
+  padding: 4px var(--wab-space-lg);
+  font-size: 12px;
+  color: var(--wab-text-secondary);
+  border-top: 1px solid var(--wab-border);
+  background-color: var(--wab-bg-default);
+}
+#wa-backup-sidebar > .wab-status:empty {
+  display: none;
+}
+
+/* --- Step 1: range picker on the welcome view ----------------------------- */
+.wab-range-picker {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  background-color: var(--wab-bg-panel);
+  border: 1px solid var(--wab-border);
+  border-radius: 8px;
+  padding: var(--wab-space-md);
+  margin: var(--wab-space-md) 0;
+}
+.wab-range-picker .wab-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--wab-space-sm);
+  margin: var(--wab-space-xs) 0;
+  font-size: 12.5px;
+  color: var(--wab-text-primary);
+}
+.wab-range-picker .wab-field input {
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 4px var(--wab-space-sm);
+  border: 1px solid var(--wab-border);
+  border-radius: 6px;
+  background-color: var(--wab-bg-default);
+  color: var(--wab-text-primary);
+  outline: none;
+}
+.wab-range-picker .wab-field input:focus {
+  border-color: var(--wab-accent-teal);
+}
+.wab-range-picker .wab-hint {
+  font-size: 11px;
+  color: var(--wab-text-secondary);
+  margin: 4px 0 var(--wab-space-sm);
+}
+.wab-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: var(--wab-space-sm);
+}
+.wab-preset-btn {
+  font-family: var(--wab-font-family);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--wab-border);
+  background-color: var(--wab-bg-default);
+  color: var(--wab-text-primary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.wab-preset-btn:hover {
+  background-color: var(--wab-bg-hover);
+}
+.wab-preset-btn.active {
+  border-color: var(--wab-accent-teal);
+  color: var(--wab-accent-teal);
+}
+#wab-load {
+  width: 100%;
+  padding: 8px;
+  font-family: var(--wab-font-family);
+  font-weight: 500;
+  font-size: 13px;
+  color: #ffffff;
+  background-color: var(--wab-accent-teal);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+#wab-load:hover {
+  background-color: var(--wab-accent-teal-hover);
+}
+#wab-load:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+#wab-loaded-info {
+  font-size: 12.5px;
+  color: var(--wab-accent-teal);
+  margin: var(--wab-space-xs) 0 var(--wab-space-sm);
+}
+#wab-loaded-info.hidden,
+#wab-welcome-actions.hidden {
+  display: none;
+}
+/* Truncation-choice bubble when it renders inside the welcome view */
+.wab-welcome-state .wab-chat-bubble {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  margin-top: var(--wab-space-sm);
+}
+
+/* ==========================================================================
+   Agent Mode — Toggle, Status Dot, Permission Bubble
+   ========================================================================== */
+
+/* Mode toggle tabs in sidebar header */
+.wab-mode-toggle {
+  display: flex;
+  background-color: var(--wab-bg-panel);
+  border-radius: 20px;
+  padding: 2px;
+  gap: 2px;
+  border: 1px solid var(--wab-border);
+}
+.wab-mode-btn {
+  font-family: var(--wab-font-family);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 14px;
+  border-radius: 18px;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: var(--wab-text-secondary);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.wab-mode-btn:hover {
+  color: var(--wab-text-primary);
+}
+.wab-mode-btn.active {
+  background-color: var(--wab-accent-teal);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 168, 132, 0.3);
+}
+
+/* Connection status dot (in header, next to title) */
+.wab-conn-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  transition: background-color 0.3s ease;
+  flex-shrink: 0;
+}
+.wab-conn-dot.connected {
+  background-color: #00a884;
+  box-shadow: 0 0 6px rgba(0, 168, 132, 0.5);
+}
+.wab-conn-dot.disconnected {
+  background-color: var(--wab-danger);
+  box-shadow: 0 0 6px rgba(234, 67, 53, 0.4);
+}
+.wab-conn-dot.connecting {
+  background-color: var(--wab-warning);
+  animation: wab-pulse-dot 1.2s infinite;
+}
+@keyframes wab-pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Agent welcome state (replaces copilot welcome when in agent mode) */
+.wab-agent-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--wab-space-2xl) var(--wab-space-xl);
+  text-align: center;
+  flex: 1;
+}
+.wab-agent-welcome .wab-welcome-icon {
+  margin-bottom: var(--wab-space-md);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--wab-accent-teal), var(--wab-accent-blue));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+}
+.wab-agent-welcome h3 {
+  margin: 0 0 var(--wab-space-sm) 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--wab-text-primary);
+}
+.wab-agent-welcome p {
+  margin: 0 0 var(--wab-space-lg) 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--wab-text-secondary);
+  max-width: 280px;
+}
+.wab-agent-suggestions {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--wab-space-sm);
+}
+
+/* Agent status line (shows what the agent is doing) */
+.wab-agent-status {
+  padding: 6px var(--wab-space-lg);
+  font-size: 12px;
+  color: var(--wab-accent-blue);
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 18px;
+  border-top: 1px solid var(--wab-border);
+  background-color: var(--wab-bg-default);
+}
+.wab-agent-status:empty {
+  display: none;
+}
+.wab-agent-status .wab-status-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--wab-border);
+  border-top-color: var(--wab-accent-blue);
+  border-radius: 50%;
+  animation: wab-spin 0.8s linear infinite;
+}
+@keyframes wab-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Permission prompt bubble */
+.wab-permission-bubble {
+  background-color: var(--wab-bg-panel);
+  border: 1px solid var(--wab-warning);
+  border-radius: 8px;
+  padding: var(--wab-space-md);
+  margin: var(--wab-space-sm) var(--wab-space-lg);
+  animation: wab-msg-slide-up 0.2s ease-out;
+}
+.wab-permission-bubble .wab-perm-icon {
+  font-size: 16px;
+  margin-right: 6px;
+}
+.wab-permission-bubble .wab-perm-text {
+  font-size: 13px;
+  color: var(--wab-text-primary);
+  margin-bottom: var(--wab-space-sm);
+  line-height: 1.4;
+}
+.wab-permission-bubble .wab-perm-chat-name {
+  font-weight: 600;
+  color: var(--wab-accent-teal);
+}
+.wab-permission-bubble .wab-perm-actions {
+  display: flex;
+  gap: var(--wab-space-sm);
+  flex-wrap: wrap;
+}
+.wab-perm-btn {
+  font-family: var(--wab-font-family);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--wab-border);
+  cursor: pointer;
+  transition: all 0.15s;
+  background-color: var(--wab-bg-default);
+  color: var(--wab-text-primary);
+}
+.wab-perm-btn:hover {
+  background-color: var(--wab-bg-hover);
+}
+.wab-perm-btn.allow {
+  background-color: var(--wab-accent-teal);
+  color: #ffffff;
+  border-color: var(--wab-accent-teal);
+}
+.wab-perm-btn.allow:hover {
+  background-color: var(--wab-accent-teal-hover);
+}
+.wab-perm-btn.deny {
+  color: var(--wab-danger);
+  border-color: var(--wab-danger);
+}
+.wab-perm-btn.deny:hover {
+  background-color: rgba(234, 67, 53, 0.1);
+}
