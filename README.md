@@ -120,3 +120,17 @@ Note: media transcription still uses Gemini even with a local text model (see th
 - [x] Local text model option (Ollama via LiteLLM)
 - [ ] Fully-local media transcription (Gemma 4 on Ollama)
 - [ ] Lower-friction first-run setup
+
+---
+
+## License
+
+Copyright (C) 2026 devv-shayan.
+
+Licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0). See
+[LICENSE](LICENSE) for the full text.
+
+In plain terms: you're free to use, self-host, study, and modify this. But if you
+run a modified version as a network service, the AGPL requires you to make your
+modified source available to its users. That keeps the project open and stops
+anyone from taking it closed-source into a hosted product without giving back.
