@@ -74,6 +74,13 @@ html:not(.dark):not(.theme-dark) #wa-backup-sidebar {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   cursor: pointer;
   transition: background-color 0.15s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.wab-fab-logo {
+  border-radius: 4px;
+  flex-shrink: 0;
 }
 /* Light mode page style override if the page body isn't dark */
 body:not(.dark):not(.theme-dark) #wa-backup-btn {
@@ -134,12 +141,22 @@ body:not(.dark):not(.theme-dark) #wa-backup-btn:hover {
   align-items: center;
   gap: var(--wab-space-sm);
 }
-/* Subtle accent dot for AI instead of emojis */
-.wab-sidebar-title .wab-accent-dot {
+/* Logo in sidebar header */
+.wab-sidebar-title .wab-title-logo {
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+/* Connection status dot — hidden when in manual mode, visible in agent mode */
+.wab-title-status-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: var(--wab-accent-blue);
+  display: none;
+  flex-shrink: 0;
+}
+.wab-conn-dot.connected,
+.wab-conn-dot.disconnected,
+.wab-conn-dot.connecting {
   display: inline-block;
 }
 .wab-sidebar-actions {
@@ -197,62 +214,27 @@ body:not(.dark):not(.theme-dark) #wa-backup-btn:hover {
   color: var(--wab-text-secondary);
   margin-bottom: var(--wab-space-md);
 }
-.wab-settings-group {
-  background-color: var(--wab-bg-default);
-  border: 1px solid var(--wab-border);
-  border-radius: 8px;
-  padding: var(--wab-space-md);
-  margin-bottom: var(--wab-space-sm);
-}
-.wab-settings-group:last-child {
-  margin-bottom: 0;
-}
-.wab-settings-group .wab-field {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--wab-space-sm);
-  margin: var(--wab-space-xs) 0;
-  font-size: 12.5px;
-  color: var(--wab-text-primary);
-}
-.wab-settings-group .wab-field input {
-  font-family: inherit;
-  font-size: 12.5px;
-  padding: 4px var(--wab-space-sm);
-  border: 1px solid var(--wab-border);
-  border-radius: 6px;
-  background-color: var(--wab-bg-panel);
-  color: var(--wab-text-primary);
-  outline: none;
-}
-.wab-settings-group .wab-field input:focus {
-  border-color: var(--wab-accent-teal);
-}
-.wab-settings-group .wab-hint {
-  font-size: 11px;
-  color: var(--wab-text-secondary);
-  margin: 4px 0 var(--wab-space-sm);
-}
-.wab-settings-group .wab-formats {
+.wab-range-picker .wab-formats {
   display: flex;
   gap: var(--wab-space-md);
+  margin-top: var(--wab-space-md);
   margin-bottom: var(--wab-space-sm);
   font-size: 12.5px;
 }
-.wab-settings-group .wab-formats label {
+.wab-range-picker .wab-formats label {
   display: flex;
   align-items: center;
   gap: var(--wab-space-xs);
   cursor: pointer;
   color: var(--wab-text-primary);
 }
-.wab-settings-group .wab-formats input[type="checkbox"] {
+.wab-range-picker .wab-formats input[type="checkbox"] {
   accent-color: var(--wab-accent-teal);
 }
-.wab-settings-group #wab-go {
+.wab-range-picker #wab-go {
   width: 100%;
   padding: 8px;
+  margin-top: var(--wab-space-sm);
   font-family: var(--wab-font-family);
   font-weight: 500;
   font-size: 13px;
@@ -263,10 +245,10 @@ body:not(.dark):not(.theme-dark) #wa-backup-btn:hover {
   cursor: pointer;
   transition: background-color 0.15s;
 }
-.wab-settings-group #wab-go:hover {
+.wab-range-picker #wab-go:hover {
   background-color: var(--wab-accent-teal-hover);
 }
-.wab-settings-group #wab-go:disabled {
+.wab-range-picker #wab-go:disabled {
   opacity: 0.5;
   cursor: default;
 }
@@ -315,8 +297,8 @@ body:not(.dark):not(.theme-dark) #wa-backup-btn:hover {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: var(--wab-space-2xl) var(--wab-space-xl);
+  justify-content: flex-start;
+  padding: 64px var(--wab-space-xl) var(--wab-space-2xl);
   text-align: center;
   flex: 1;
 }
@@ -558,14 +540,16 @@ body:not(.dark):not(.theme-dark) #wa-backup-btn:hover {
 }
 .wab-chat-input-area textarea {
   flex: 1;
+  box-sizing: border-box;
   border: 1px solid var(--wab-border);
   border-radius: 8px;
-  padding: 8px var(--wab-space-md);
+  padding: 10px var(--wab-space-md);
   font-family: var(--wab-font-family);
   font-size: 14.2px;
+  line-height: 18px;
   color: var(--wab-text-primary);
   resize: none;
-  height: 20px;
+  height: 40px;
   max-height: 80px;
   outline: none;
   background-color: var(--wab-bg-default);
@@ -574,11 +558,10 @@ body:not(.dark):not(.theme-dark) #wa-backup-btn:hover {
 .wab-chat-input-area textarea:focus {
   border-color: var(--wab-accent-blue);
 }
-#wab-query-send {
-  background-color: var(--wab-accent-blue);
-  color: var(--wab-bg-deeper);
+#wab-agent-send {
+  background: transparent;
+  color: var(--wab-text-secondary);
   border: none;
-  border-radius: 50%;
   width: 36px;
   height: 36px;
   font-size: 16px;
@@ -586,12 +569,12 @@ body:not(.dark):not(.theme-dark) #wa-backup-btn:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.15s, transform 0.1s;
+  transition: color 0.15s, transform 0.1s;
 }
-#wab-query-send:hover {
-  background-color: var(--wab-accent-blue-hover);
+#wab-agent-send:hover {
+  color: var(--wab-text-primary);
 }
-#wab-query-send:active {
+#wab-agent-send:active {
   transform: scale(0.95);
 }
 
@@ -772,8 +755,8 @@ body:not(.dark):not(.theme-dark) #wa-backup-btn:hover {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: var(--wab-space-2xl) var(--wab-space-xl);
+  justify-content: flex-start;
+  padding: 64px var(--wab-space-xl) var(--wab-space-2xl);
   text-align: center;
   flex: 1;
 }
@@ -781,8 +764,6 @@ body:not(.dark):not(.theme-dark) #wa-backup-btn:hover {
   margin-bottom: var(--wab-space-md);
   width: 56px;
   height: 56px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--wab-accent-teal), var(--wab-accent-blue));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -894,4 +875,89 @@ body:not(.dark):not(.theme-dark) #wa-backup-btn:hover {
 }
 .wab-perm-btn.deny:hover {
   background-color: rgba(234, 67, 53, 0.1);
+}
+
+/* Agent-mode connection empty state: shown when the local backend is
+   unreachable (or while connecting), so a missing server is never silent. */
+#wa-backup-sidebar .wab-conn-banner {
+  margin: var(--wab-space-md) 0;
+  padding: var(--wab-space-md);
+  border: 1px solid var(--wab-warning);
+  border-radius: 8px;
+  background-color: rgba(245, 158, 11, 0.1);
+  color: var(--wab-text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: left;
+}
+#wa-backup-sidebar .wab-conn-banner.hidden {
+  display: none;
+}
+#wa-backup-sidebar .wab-conn-banner code {
+  background-color: var(--wab-bg-deeper);
+  color: var(--wab-accent-teal);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* Inline Lucide SVG icons: consistent sizing/alignment across the UI. */
+#wa-backup-sidebar .wab-svg-icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+#wa-backup-sidebar .wab-icon-btn .wab-svg-icon,
+#wa-backup-sidebar #wab-agent-send .wab-svg-icon {
+  display: block;
+  margin: auto;
+}
+/* Welcome icons take the accent color; message-type badges are plain text. */
+#wa-backup-sidebar .wab-welcome-icon .wab-svg-icon {
+  color: var(--wab-accent-teal);
+}
+/* Banner alert glyph inherits the warning color and sits with the text. */
+#wa-backup-sidebar .wab-conn-banner .wab-banner-icon {
+  color: var(--wab-warning);
+  margin-right: 6px;
+}
+#wa-backup-sidebar .wab-perm-icon .wab-svg-icon {
+  vertical-align: middle;
+}
+
+/* Agent settings panel (gear-toggled): API key + model selection. */
+#wa-backup-sidebar .wab-agent-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wab-space-sm);
+  padding: var(--wab-space-md);
+  border-bottom: 1px solid var(--wab-border);
+  background-color: var(--wab-bg-panel);
+}
+#wa-backup-sidebar .wab-agent-settings.collapsed {
+  display: none;
+}
+#wa-backup-sidebar .wab-agent-settings input,
+#wa-backup-sidebar .wab-agent-settings select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--wab-space-sm);
+  background-color: var(--wab-bg-deeper);
+  border: 1px solid var(--wab-border);
+  border-radius: 6px;
+  color: var(--wab-text-primary);
+  font-size: 13px;
+  font-family: var(--wab-font-family);
+}
+#wa-backup-sidebar .wab-agent-settings .wab-sub-title {
+  color: var(--wab-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: var(--wab-space-xs);
+}
+#wa-backup-sidebar .wab-agent-settings .wab-hint {
+  color: var(--wab-text-muted);
+  font-size: 11px;
+  line-height: 1.4;
 }
