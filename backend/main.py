@@ -132,9 +132,18 @@ async def _compact_context_if_needed(session: SQLiteSession) -> None:
             item_type = get_val("type")
             if item_type in ("tool_call_item", "tool_call"):
                 tool_name = get_val("name") or "tool"
-                text = f"[Tool Call: {tool_name}]"
+                friendly = {
+                    "list_chats": "Listing chats",
+                    "get_messages": "Fetching messages",
+                    "search_messages": "Searching messages",
+                    "get_active_chat": "Checking active chat",
+                    "transcribe_media": "Processing media",
+                    "visit_url": "Reading webpage",
+                    "export_chat": "Exporting chat",
+                }.get(tool_name, "Working")
+                text = f"[Action: {friendly}]"
             elif item_type in ("tool_response_item", "tool_response"):
-                text = f"[Tool Response]"
+                text = f"[Action Result]"
 
             if text:
                 history_lines.append(f"{str(role).upper()}: {text}")
@@ -289,13 +298,19 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                 # If a previous run is still in progress, let user know
                 if agent_task is not None and not agent_task.done():
                     await bridge.send_assistant_message(
-                        "⏳ I'm still working on the previous request. "
+                        "I'm still working on the previous request. "
                         "Please wait a moment…"
                     )
                     continue
 
+                # Web-first model/key overrides from the extension settings
+                # panel; empty strings collapse to None so the agent falls
+                # back to the .env defaults.
+                model_override = msg.get("model") or None
+                key_override = msg.get("apiKey") or None
+
                 agent_task = asyncio.create_task(
-                    _run_agent(user_text),
+                    _run_agent(user_text, model_override, key_override),
                     name="agent-run",
                 )
 
@@ -322,7 +337,11 @@ async def websocket_endpoint(ws: WebSocket) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def _run_agent(user_text: str) -> None:
+async def _run_agent(
+    user_text: str,
+    model_override: str | None = None,
+    key_override: str | None = None,
+) -> None:
     """
     Execute one turn of the agent, streaming deltas and status updates
     back to the extension via the bridge.
@@ -335,9 +354,13 @@ async def _run_agent(user_text: str) -> None:
         # 1. Run context compaction if history exceeds limits
         await _compact_context_if_needed(session)
 
-        # 2. Load memory and instantiate agent dynamically
+        # 2. Load memory and instantiate agent dynamically (web-first model/key)
         memory_prompt = _load_memory()
-        dynamic_agent = create_agent(memory_prompt=memory_prompt)
+        dynamic_agent = create_agent(
+            memory_prompt=memory_prompt,
+            model_name=model_override,
+            api_key=key_override,
+        )
 
         result = Runner.run_streamed(
             dynamic_agent,
@@ -355,7 +378,16 @@ async def _run_agent(user_text: str) -> None:
                 item = event.item
                 if hasattr(item, "type") and item.type == "tool_call_item":
                     tool_name = getattr(item, "name", None) or "tool"
-                    await bridge.send_status(f"Using {tool_name}…")
+                    friendly = {
+                        "list_chats": "Listing chats",
+                        "get_messages": "Fetching messages",
+                        "search_messages": "Searching messages",
+                        "get_active_chat": "Checking active chat",
+                        "transcribe_media": "Processing media",
+                        "visit_url": "Reading webpage",
+                        "export_chat": "Exporting chat",
+                    }.get(tool_name, "Working")
+                    await bridge.send_status(f"{friendly}…")
 
         # Send the final complete message
         final = result.final_output or ""
@@ -366,7 +398,7 @@ async def _run_agent(user_text: str) -> None:
         logger.exception("Agent run failed")
         try:
             await bridge.send_assistant_message(
-                "❌ Sorry, something went wrong while processing your request. "
+                "Sorry, something went wrong while processing your request. "
                 "Please try again."
             )
         except Exception:

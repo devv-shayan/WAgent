@@ -124,7 +124,7 @@ class ExtensionBridge:
         except ConnectionError as exc:
             async with self._lock:
                 self._pending.pop(call_id, None)
-            raise RuntimeError(f"Cannot call extension tool '{tool_name}': {exc}") from exc
+            raise RuntimeError(f"Action failed because the extension is not connected: {exc}") from exc
 
         logger.info("Tool call sent: %s (id=%s)", tool_name, call_id)
 
@@ -135,19 +135,19 @@ class ExtensionBridge:
             async with self._lock:
                 self._pending.pop(call_id, None)
             raise RuntimeError(
-                f"Tool call '{tool_name}' (id={call_id}) timed out after {_CALL_TIMEOUT}s"
+                "The request timed out. Please try again."
             )
         except asyncio.CancelledError:
             async with self._lock:
                 self._pending.pop(call_id, None)
             raise RuntimeError(
-                f"Tool call '{tool_name}' (id={call_id}) was cancelled"
+                "The request was cancelled."
             )
 
         # Check for errors in the result
         if not result.get("ok", False):
             error_msg = result.get("error", "Unknown extension error")
-            raise RuntimeError(f"Extension tool '{tool_name}' failed: {error_msg}")
+            raise RuntimeError(f"Failed to complete action: {error_msg}")
 
         return result.get("result", {})
 

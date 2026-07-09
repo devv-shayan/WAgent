@@ -148,7 +148,16 @@ async def transcribe_media(chat_id: str, message_id: str) -> str:
         logger.info("Saved media to %s (%d bytes)", media_path, len(media_bytes))
 
         # 4. Transcribe/Describe with Gemini
-        await bridge.send_status("Transcribing media…")
+        # Pick a user-friendly status label based on media type
+        if "image" in mimetype or media_type == "image":
+            status_label = "Describing image…"
+        elif "audio" in mimetype or media_type in ("ptt", "audio"):
+            status_label = "Transcribing voice note…"
+        elif "video" in mimetype or media_type == "video":
+            status_label = "Processing video…"
+        else:
+            status_label = "Processing media…"
+        await bridge.send_status(status_label)
 
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:

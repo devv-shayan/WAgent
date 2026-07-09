@@ -40,6 +40,13 @@ If denied, acknowledge gracefully and move on.
 4. CITE SOURCES: Always mention sender names and approximate dates \
 when quoting messages.
 5. Be concise but thorough.  Format responses with markdown.
+6. MEDIA MESSAGES: When you see messages with type 'image', 'video', \
+or 'ptt' (voice note), you CANNOT see their content directly. The body \
+field will be null. You MUST call transcribe_media with the message's \
+chat_id and message id to get a description (for images/video) or \
+transcription (for voice notes). Always do this proactively when a user \
+asks about media content — don't say you can't see it.
+7. NO TOOL LEAKS: Never mention internal tool names (e.g., `list_chats`, `get_messages`, `search_messages`, `get_active_chat`, `transcribe_media`, `visit_url`, `export_chat`) in your responses to the user. Always describe what you are doing in natural language instead of referring to the underlying functions.
 """
 
 # ---------------------------------------------------------------------------
@@ -180,16 +187,26 @@ async def export_chat(chat_id: str, format: str = "html") -> str:
 # ---------------------------------------------------------------------------
 
 
-def create_agent(memory_prompt: str | None = None) -> Agent:
-    """Create and return the WhatsApp agent."""
+def create_agent(
+    memory_prompt: str | None = None,
+    model_name: str | None = None,
+    api_key: str | None = None,
+) -> Agent:
+    """Create and return the WhatsApp agent.
+
+    Model and key resolve web-first: values passed from the extension settings
+    panel win; otherwise fall back to the .env defaults. This lets a user run
+    the agent by typing their own key / picking a model in the UI, without
+    editing .env. For local models (ollama/*) no key is needed.
+    """
     instructions = SYSTEM_PROMPT
     if memory_prompt:
         instructions += f"\n\n{memory_prompt}"
 
-    model = LitellmModel(
-        model=os.getenv("AGENT_MODEL", "gemini/gemini-2.5-flash"),
-        api_key=os.getenv("GEMINI_API_KEY"),
-    )
+    resolved_model = model_name or os.getenv("AGENT_MODEL", "gemini/gemini-2.5-flash")
+    resolved_key = api_key or os.getenv("GEMINI_API_KEY")
+
+    model = LitellmModel(model=resolved_model, api_key=resolved_key)
     return Agent(
         name="WhatsApp Agent",
         instructions=instructions,
