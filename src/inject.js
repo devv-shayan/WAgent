@@ -51,7 +51,7 @@
       case "downloadMedia":
         return downloadMediaAction(payload);
       default:
-        throw new Error("unknown action: " + action);
+        throw new Error("unknown action");
     }
   }
 

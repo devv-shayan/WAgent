@@ -9,6 +9,32 @@
   "use strict";
   const TAG = "[WA-Backup:content]";
 
+  // --- Icons (Lucide) -------------------------------------------------------
+  // Inlined Lucide SVG paths (the same set lucide-react wraps). Vanilla-JS
+  // friendly: no build step, and stroke="currentColor" makes them theme-aware.
+  const ICONS = {
+    settings:
+      '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+    x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    send: '<path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9Z"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+    lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    "message-square":
+      '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    bot: '<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>',
+    "triangle-alert":
+      '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  };
+
+  function icon(name, size = 20) {
+    return (
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" ` +
+      `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ` +
+      `stroke-linecap="round" stroke-linejoin="round" class="wab-svg-icon" aria-hidden="true">` +
+      `${ICONS[name] || ""}</svg>`
+    );
+  }
+
   // --- bridge to inject.js (promise per request) ----------------------------
   function callInject(action, payload) {
     return new Promise((resolve, reject) => {
@@ -30,15 +56,13 @@
     if (document.getElementById("wa-backup-btn")) return;
     const btn = document.createElement("button");
     btn.id = "wa-backup-btn";
-    btn.textContent = "⤓ Export chat";
+    const logoUrl = chrome.runtime.getURL("assets/icon-32.png");
+    btn.innerHTML = `<img src="${logoUrl}" alt="" width="20" height="20" class="wab-fab-logo"> WAgent`;
     btn.addEventListener("click", togglePanel);
     document.body.appendChild(btn);
   }
 
-  let conversationHistory = []; // stores { role: 'user'|'model', parts: [{ text: '...' }] }
-  let chatTranscriptCache = null; // cached string transcript
-  let chatDataCache = null; // cached raw exported chat data object
-  let currentMode = 'local'; // 'local' | 'agent'
+  let currentMode = 'local'; // 'local' (Manual/export) | 'agent'
   let agentClient = null; // AgentClient instance (lazy)
 
   function adjustWhatsAppLayout(isOpen) {
@@ -67,60 +91,27 @@
     sidebar.innerHTML = `
       <div class="wab-sidebar-header">
         <div class="wab-sidebar-title">
-          <span class="wab-accent-dot" id="wab-title-dot"></span> Chat Copilot
+          <img src="${chrome.runtime.getURL("assets/logo.svg")}" alt="WAgent" width="22" height="22" class="wab-title-logo">
+          <span id="wab-title-dot" class="wab-title-status-dot"></span>
+          WAgent
         </div>
         <div class="wab-sidebar-actions">
           <div class="wab-mode-toggle">
-            <button class="wab-mode-btn active" data-mode="local">Local</button>
+            <button class="wab-mode-btn active" data-mode="local">Manual</button>
             <button class="wab-mode-btn" data-mode="agent">Agent</button>
           </div>
-          <button class="wab-icon-btn" id="wab-settings-toggle" title="Settings">⚙️</button>
-          <button class="wab-icon-btn" id="wab-sidebar-close" title="Close Panel">&times;</button>
+          <button class="wab-icon-btn" id="wab-agent-settings-toggle" title="Agent settings" style="display:none">${icon("settings", 18)}</button>
+          <button class="wab-icon-btn" id="wab-sidebar-close" title="Close Panel">${icon("x", 18)}</button>
         </div>
       </div>
 
+      <!-- ======= Manual Mode: export only ======= -->
       <div class="wab-sidebar-content">
-        <!-- Settings section -->
-        <div id="wab-settings-section" class="wab-section collapsed">
-          <div class="wab-section-title">Configuration</div>
-          
-          <div class="wab-settings-group">
-            <div class="wab-sub-title">Export Formats</div>
-            <div class="wab-hint">Uses the date range selected in the main panel.</div>
-            <div class="wab-formats">
-              <label><input type="checkbox" id="wab-fmt-json" checked> JSON</label>
-              <label><input type="checkbox" id="wab-fmt-html" checked> HTML</label>
-              <label><input type="checkbox" id="wab-fmt-csv"> CSV</label>
-            </div>
-            <button id="wab-go">Export Files</button>
-          </div>
-
-          <div class="wab-settings-group" style="margin-top: 12px;">
-            <div class="wab-sub-title">Gemini API Key</div>
-            <div class="wab-field-col">
-              <input type="password" id="wab-gemini-key" placeholder="Enter API Key">
-            </div>
-            <div class="wab-sub-title">Model</div>
-            <div class="wab-field-col">
-              <select id="wab-gemini-model">
-                <option value="gemini-3.5-flash">Gemini 3.5 Flash (Recommended)</option>
-                <option value="gemini-3.5-pro">Gemini 3.5 Pro</option>
-                <option value="gemini-3.1-pro">Gemini 3.1 Pro (Reasoning)</option>
-                <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite</option>
-                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <!-- Chat / Summary Container -->
         <div class="wab-chat-container">
-          <!-- Welcome landing view -->
           <div id="wab-chat-welcome" class="wab-welcome-state">
-            <div class="wab-welcome-icon">💬</div>
-            <h3>Chat Copilot</h3>
-            <p>Pick how much of this chat to load, then summarize or ask questions.</p>
+            <div class="wab-welcome-icon">${icon("download", 40)}</div>
+            <h3>Export chat</h3>
+            <p>Pick a date range and one or more formats, then export this chat to a file.</p>
 
             <div class="wab-range-picker">
               <div class="wab-presets">
@@ -136,51 +127,51 @@
                 <input type="date" id="wab-to">
               </label>
               <div class="wab-hint">Empty = full history</div>
-              <button id="wab-load">Load messages</button>
-            </div>
-
-            <div id="wab-loaded-info" class="hidden"></div>
-
-            <div id="wab-welcome-actions" class="hidden">
-            
-            <button id="wab-summarize">Summarize Chat</button>
-
-            <div class="wab-suggestions">
-              <div class="wab-suggest-title">Try asking:</div>
-              <button class="wab-suggest-btn" data-query="What are the key decisions made in this chat?">Decisions made</button>
-              <button class="wab-suggest-btn" data-query="List all action items and who they are assigned to.">Action items</button>
-              <button class="wab-suggest-btn" data-query="What was the main topic of conversation?">Main topic</button>
-              <button class="wab-suggest-btn" data-query="Give me a summary of the sentiment in this chat.">Sentiment summary</button>
-            </div>
+              
+              <div class="wab-formats">
+                <label><input type="checkbox" id="wab-fmt-json" checked> JSON</label>
+                <label><input type="checkbox" id="wab-fmt-html" checked> HTML</label>
+                <label><input type="checkbox" id="wab-fmt-csv"> CSV</label>
+              </div>
+              <button id="wab-go">Export</button>
             </div>
           </div>
-
-          <!-- Chat history view -->
-          <div id="wab-chat-messages" class="wab-messages-list hidden"></div>
         </div>
       </div>
 
-      <!-- Status line: lives OUTSIDE the welcome view so it stays visible
-           during Q&A (welcome gets hidden once a conversation starts). -->
+      <!-- Export status line -->
       <div class="wab-status" id="wab-status"></div>
-
-      <!-- Text input area sticky at the bottom -->
-      <div class="wab-chat-input-area hidden" id="wab-chat-input-bar">
-        <textarea id="wab-query-input" placeholder="Ask anything about this chat... (Press Enter)"></textarea>
-        <button id="wab-query-send" title="Send query">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
-          </svg>
-        </button>
-      </div>
 
       <!-- ======= Agent Mode Views (hidden by default) ======= -->
       <div id="wab-agent-container" class="wab-sidebar-content" style="display:none;">
+        <div id="wab-agent-settings" class="wab-agent-settings collapsed">
+          <div class="wab-sub-title">API key</div>
+          <input type="password" id="wab-agent-key" placeholder="Your API key (not needed for local models)">
+          <div class="wab-sub-title">Model</div>
+          <select id="wab-agent-model">
+            <option value="">Backend default (.env)</option>
+            <optgroup label="Gemini (cloud)">
+              <option value="gemini/gemini-3.5-flash">Gemini 3.5 Flash (Recommended)</option>
+              <option value="gemini/gemini-3.5-pro">Gemini 3.5 Pro</option>
+              <option value="gemini/gemini-3.1-pro">Gemini 3.1 Pro (Reasoning)</option>
+              <option value="gemini/gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite</option>
+              <option value="gemini/gemini-2.5-flash">Gemini 2.5 Flash</option>
+              <option value="gemini/gemini-2.5-pro">Gemini 2.5 Pro</option>
+            </optgroup>
+            <optgroup label="Local (Ollama)">
+              <option value="ollama/llama3.1">Llama 3.1</option>
+              <option value="ollama/gemma4:e4b">Gemma 4</option>
+            </optgroup>
+          </select>
+          <input type="text" id="wab-agent-model-custom" placeholder="Custom model (optional), e.g. ollama/qwen3">
+          <div class="wab-hint">Web settings override .env. Leave everything blank to use the backend's .env.</div>
+        </div>
         <div class="wab-chat-container">
           <div id="wab-agent-welcome" class="wab-agent-welcome">
-            <div class="wab-welcome-icon">🤖</div>
-            <h3>WhatsApp Agent</h3>
+            <div class="wab-welcome-icon"><img src="${chrome.runtime.getURL("assets/icon-128.png")}" alt="WAgent" width="48" height="48" class="wab-welcome-logo"></div>
+            <h3>Agent mode</h3>
             <p>Ask me anything about your chats. I'll search and fetch what's needed.</p>
+            <div id="wab-agent-conn-banner" class="wab-conn-banner hidden"></div>
             <div class="wab-agent-suggestions">
               <div class="wab-suggest-title">Try asking:</div>
               <button class="wab-suggest-btn wab-agent-suggest" data-query="What chats do I have?">What chats do I have?</button>
@@ -194,11 +185,7 @@
       <div class="wab-agent-status" id="wab-agent-status"></div>
       <div class="wab-chat-input-area hidden" id="wab-agent-input-bar">
         <textarea id="wab-agent-input" placeholder="Ask about your chats... (Press Enter)"></textarea>
-        <button id="wab-agent-send" title="Send">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
-          </svg>
-        </button>
+        <button id="wab-agent-send" title="Send">${icon("send")}</button>
       </div>
     `;
 
@@ -212,14 +199,7 @@
       adjustWhatsAppLayout(false);
     });
 
-    // Settings panel toggle
-    const settingsToggle = document.getElementById("wab-settings-toggle");
-    settingsToggle.addEventListener("click", () => {
-      const settingsSection = document.getElementById("wab-settings-section");
-      settingsSection.classList.toggle("collapsed");
-    });
-
-    // Mode toggle (Local / Agent)
+    // Mode toggle (Manual / Agent)
     sidebar.querySelectorAll(".wab-mode-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         const mode = btn.getAttribute("data-mode");
@@ -227,6 +207,7 @@
         sidebar.querySelectorAll(".wab-mode-btn").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
         switchMode(mode);
+        chrome.storage.local.set({ lastMode: mode });
       });
     });
 
@@ -253,10 +234,10 @@
       if (q) { agentInput.value = ""; onAgentQuerySubmit(q); }
     });
 
-    // Wire up exporter
+    // Wire up the exporter (Manual mode = export only)
     document.getElementById("wab-go").addEventListener("click", onExportClick);
-    
-    // Wire up range presets + the Load step (step 1 of the copilot flow)
+
+    // Range presets for export
     sidebar.querySelectorAll(".wab-preset-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         sidebar.querySelectorAll(".wab-preset-btn").forEach((b) => b.classList.remove("active"));
@@ -270,65 +251,40 @@
         sidebar.querySelectorAll(".wab-preset-btn").forEach((b) => b.classList.remove("active"));
       });
     });
-    document.getElementById("wab-load").addEventListener("click", onLoadClick);
 
-    // Wire up summarizer
-    document.getElementById("wab-summarize").addEventListener("click", () => onSummarizeClick());
-
-    // Wire up suggestion buttons
-    const suggestBtns = sidebar.querySelectorAll(".wab-suggest-btn");
-    suggestBtns.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const query = btn.getAttribute("data-query");
-        if (query) {
-          onQuerySubmit(query);
-        }
-      });
+    // Agent settings panel: gear toggles it; fields persist to storage and are
+    // sent with each agent message (web overrides .env).
+    document.getElementById("wab-agent-settings-toggle")?.addEventListener("click", () => {
+      document.getElementById("wab-agent-settings")?.classList.toggle("collapsed");
     });
+    const agentKeyEl = document.getElementById("wab-agent-key");
+    const agentModelEl = document.getElementById("wab-agent-model");
+    const agentModelCustomEl = document.getElementById("wab-agent-model-custom");
+    agentKeyEl?.addEventListener("input", (e) => chrome.storage.local.set({ agentKey: e.target.value }));
+    agentModelEl?.addEventListener("change", (e) => chrome.storage.local.set({ agentModel: e.target.value }));
+    agentModelCustomEl?.addEventListener("input", (e) => chrome.storage.local.set({ agentModelCustom: e.target.value }));
 
-    // Wire up Chat input submission
-    const queryInput = document.getElementById("wab-query-input");
-    const querySend = document.getElementById("wab-query-send");
+    // Restore agent settings, then land in the last-used mode. Agent-first:
+    // first-ever open defaults to Agent (the point of the product); a user who
+    // prefers Manual export keeps landing there after one toggle.
+    chrome.storage.local.get(["lastMode", "agentKey", "agentModel", "agentModelCustom"], (res) => {
+      if (agentKeyEl && res.agentKey) agentKeyEl.value = res.agentKey;
+      if (agentModelEl && res.agentModel) agentModelEl.value = res.agentModel;
+      if (agentModelCustomEl && res.agentModelCustom) agentModelCustomEl.value = res.agentModelCustom;
 
-    queryInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        const query = queryInput.value.trim();
-        if (query) {
-          queryInput.value = "";
-          onQuerySubmit(query);
+      const startMode = res.lastMode === "local" ? "local" : "agent";
+      if (startMode !== currentMode) {
+        const targetBtn = sidebar.querySelector(`.wab-mode-btn[data-mode="${startMode}"]`);
+        const otherBtn = sidebar.querySelector(
+          `.wab-mode-btn[data-mode="${startMode === "agent" ? "local" : "agent"}"]`
+        );
+        if (targetBtn && otherBtn) {
+          otherBtn.classList.remove("active");
+          targetBtn.classList.add("active");
         }
+        switchMode(startMode);
       }
     });
-
-    querySend.addEventListener("click", () => {
-      const query = queryInput.value.trim();
-      if (query) {
-        queryInput.value = "";
-        onQuerySubmit(query);
-      }
-    });
-
-    // Save inputs automatically on change
-    document.getElementById("wab-gemini-key")?.addEventListener("input", (e) => {
-      chrome.storage.local.set({ geminiKey: e.target.value });
-    });
-    document.getElementById("wab-gemini-model")?.addEventListener("change", (e) => {
-      chrome.storage.local.set({ geminiModel: e.target.value });
-    });
-
-    // Populate inputs from local storage
-    chrome.storage.local.get(["geminiKey", "geminiModel"], (res) => {
-      const keyInput = document.getElementById("wab-gemini-key");
-      const modelSelect = document.getElementById("wab-gemini-model");
-      if (keyInput && res.geminiKey) keyInput.value = res.geminiKey;
-      if (modelSelect && res.geminiModel) modelSelect.value = res.geminiModel;
-    });
-
-    // Reset session caches on panel load
-    conversationHistory = [];
-    chatTranscriptCache = null;
-    chatDataCache = null;
   }
 
   function setStatus(text, busy) {
@@ -336,8 +292,6 @@
     if (el) el.textContent = text;
     const go = document.getElementById("wab-go");
     if (go) go.disabled = !!busy;
-    const sum = document.getElementById("wab-summarize");
-    if (sum) sum.disabled = !!busy;
   }
 
   // Date inputs are local dates; convert to inclusive unix-seconds bounds:
@@ -367,7 +321,7 @@
         throw new Error("Pick at least one format");
       const range = readRange();
 
-      setStatus("⏳ Reading messages…", true);
+      setStatus("Reading messages…", true);
       const data = await callInject("exportActiveChat", range);
       if (data.messageCount === 0)
         throw new Error(`No messages in that range (chat has ${data.totalInChat})`);
@@ -378,10 +332,10 @@
       if (formats.html) download(base + ".html", renderHtml(data), "text/html");
       if (formats.csv) download(base + ".csv", renderCsv(data), "text/csv");
 
-      setStatus(`✓ Exported ${data.messageCount} of ${data.totalInChat} messages`, false);
+      setStatus(`Exported ${data.messageCount} of ${data.totalInChat} messages`, false);
     } catch (err) {
       console.error(TAG, err);
-      setStatus("✗ " + err.message, false);
+      setStatus("Error: " + err.message, false);
     }
   }
 
@@ -400,11 +354,11 @@
 
   // Map message type to a human-friendly badge shown when there's no text/thumb.
   const TYPE_BADGES = {
-    image: "📷 Image", video: "🎬 Video", sticker: "🏷️ Sticker",
-    document: "📎 Document", ptt: "🎤 Voice note", audio: "🎵 Audio",
-    vcard: "👤 Contact card", location: "📍 Location",
-    gp2: "👥 Group event", revoked: "🚫 Deleted message",
-    e2e_notification: "🔒 Encryption notice",
+    image: "Image", video: "Video", sticker: "Sticker",
+    document: "Document", ptt: "Voice note", audio: "Audio",
+    vcard: "Contact card", location: "Location",
+    gp2: "Group event", revoked: "Deleted message",
+    e2e_notification: "Encryption notice",
   };
 
   // Render the quoted/replied-to message bubble (the grey box above the reply).
@@ -543,389 +497,6 @@ ${rows}
     );
   }
 
-  // Fetches the active chat for the current range and prepares the AI
-  // transcript (asking the user about truncation if it's oversized).
-  async function loadTranscript() {
-    const range = readRange();
-    setStatus("Reading messages…", true);
-    const data = await callInject("exportActiveChat", range);
-    if (data.messageCount === 0)
-      throw new Error(`No messages in that range (chat has ${data.totalInChat})`);
-    chatDataCache = data;
-    chatTranscriptCache = await prepareTranscript(data);
-    return data;
-  }
-
-  // Step 1 of the copilot flow: the user picked a range and explicitly loads
-  // it. Only then do Summarize / suggestions / the input bar appear.
-  async function onLoadClick() {
-    const btn = document.getElementById("wab-load");
-    try {
-      btn.disabled = true;
-      // A (re)load resets the session: new scope = new conversation.
-      conversationHistory = [];
-      chatTranscriptCache = null;
-      chatDataCache = null;
-      const msgList = document.getElementById("wab-chat-messages");
-      if (msgList) msgList.innerHTML = "";
-
-      const data = await loadTranscript();
-
-      const info = document.getElementById("wab-loaded-info");
-      info.textContent = `✓ ${data.messageCount} of ${data.totalInChat} messages loaded from “${data.chat.name}”`;
-      info.classList.remove("hidden");
-      document.getElementById("wab-welcome-actions").classList.remove("hidden");
-      document.getElementById("wab-chat-input-bar").classList.remove("hidden");
-      btn.textContent = "Reload";
-      setStatus("Ready — summarize or ask anything", false);
-    } catch (err) {
-      console.error(TAG, err);
-      setStatus("✗ " + err.message, false);
-    } finally {
-      btn.disabled = false;
-    }
-  }
-
-  async function onSummarizeClick() {
-    try {
-      const key = document.getElementById("wab-gemini-key")?.value?.trim();
-      const model = document.getElementById("wab-gemini-model")?.value;
-      if (!key) {
-        document.getElementById("wab-settings-section")?.classList.remove("collapsed");
-        throw new Error("Please enter your Gemini API Key first (under settings ⚙️)");
-      }
-
-      // Transition layout
-      document.getElementById("wab-chat-welcome").style.display = "none";
-      const messagesList = document.getElementById("wab-chat-messages");
-      const inputBar = document.getElementById("wab-chat-input-bar");
-      messagesList.classList.remove("hidden");
-      inputBar.classList.remove("hidden");
-
-      // Loading bubble
-      const loading = appendLoadingBubble();
-
-      // Safety net — normally the Load step (step 1) already prepared this.
-      if (!chatTranscriptCache) {
-        try {
-          await loadTranscript();
-        } catch (e) {
-          loading.remove();
-          document.getElementById("wab-chat-welcome").style.display = "flex";
-          messagesList.classList.add("hidden");
-          inputBar.classList.add("hidden");
-          throw e;
-        }
-      }
-
-      setStatus("Generating summary...", true);
-
-      const summaryPrompt = `You are an expert chat analyst. Summarize the following WhatsApp chat transcript.
-Structure your summary professionally using these exact sections:
-
-# AI Summary: ${chatDataCache.chat.name}
-
-## 1. Executive Summary
-Provide a concise 2-3 sentence overview of the conversation's purpose and general outcome.
-
-## 2. Key Discussion Topics
-Highlight the main themes and topics discussed in bullet points, including what was said or debated about each.
-
-## 3. Decisions & Agreements
-List any concrete decisions, alignments, or agreements made between participants. If none, state "No explicit decisions made."
-
-## 4. Action Items & Next Steps
-Create a checklist of tasks, assignments, and unresolved issues with assignees if mentioned.
-
-## 5. Sentiment & Activity
-Describe the general tone of the conversation and note the most active participants.
-
-Keep it clean, organized, and do not include greeting exchanges. Use clear bullet points and bold text where relevant.
-
-Transcript:
-${chatTranscriptCache}`;
-
-      conversationHistory = [
-        {
-          role: "user",
-          parts: [{ text: summaryPrompt }]
-        }
-      ];
-
-      const responseText = await callGeminiChatAPI(key, model, conversationHistory);
-
-      conversationHistory.push({
-        role: "model",
-        parts: [{ text: responseText }]
-      });
-
-      loading.remove();
-
-      const uniqueId = "sum_" + Date.now();
-      const htmlContent = `
-        <div class="wab-summary-text">${parseMarkdownToHtml(responseText)}</div>
-        <div class="wab-bubble-actions">
-          <button class="wab-bubble-btn" id="wab-copy-${uniqueId}">Copy summary</button>
-          <button class="wab-bubble-btn" id="wab-download-${uniqueId}">Download TXT</button>
-        </div>
-      `;
-
-      appendMessageBubble("ai", htmlContent);
-
-      document.getElementById(`wab-copy-${uniqueId}`).addEventListener("click", async () => {
-        const btn = document.getElementById(`wab-copy-${uniqueId}`);
-        try {
-          await navigator.clipboard.writeText(responseText);
-          btn.textContent = "Copied!";
-        } catch (e) {
-          console.error(TAG, "clipboard", e);
-          btn.textContent = "Copy failed";
-        }
-        setTimeout(() => (btn.textContent = "Copy summary"), 2000);
-      });
-
-      document.getElementById(`wab-download-${uniqueId}`).addEventListener("click", () => {
-        download(`${safeName(chatDataCache.chat.name)}_summary.txt`, responseText, "text/plain");
-      });
-
-      setStatus("Summary ready", false);
-    } catch (err) {
-      console.error(TAG, err);
-      setStatus("Error: " + err.message, false);
-    }
-  }
-
-  async function onQuerySubmit(query) {
-    try {
-      const key = document.getElementById("wab-gemini-key")?.value?.trim();
-      const model = document.getElementById("wab-gemini-model")?.value;
-      if (!key) {
-        document.getElementById("wab-settings-section")?.classList.remove("collapsed");
-        throw new Error("Please enter your Gemini API Key first (under settings ⚙️)");
-      }
-
-      // Transition layout if welcome is visible
-      if (document.getElementById("wab-chat-welcome").style.display !== "none") {
-        document.getElementById("wab-chat-welcome").style.display = "none";
-        document.getElementById("wab-chat-messages").classList.remove("hidden");
-        document.getElementById("wab-chat-input-bar").classList.remove("hidden");
-      }
-
-      // Render user question bubble
-      appendMessageBubble("user", `<p>${escapeHtml(query)}</p>`);
-
-      // Render loading bubble
-      const loading = appendLoadingBubble();
-
-      // Safety net — normally the Load step (step 1) already prepared this.
-      if (!chatTranscriptCache) {
-        try {
-          await loadTranscript();
-        } catch (e) {
-          loading.remove();
-          throw e;
-        }
-      }
-
-      setStatus("Thinking...", true);
-
-      if (conversationHistory.length === 0) {
-        const initialPrompt = `You are an expert chat assistant. You are provided with a WhatsApp chat transcript.
-Answer the user's question about the chat transcript. Be helpful, concise, and refer to facts in the transcript.
-
-Chat Name: ${chatDataCache.chat.name}
-
-Transcript:
-${chatTranscriptCache}
-
-User Question: ${query}`;
-
-        conversationHistory.push({
-          role: "user",
-          parts: [{ text: initialPrompt }]
-        });
-      } else {
-        conversationHistory.push({
-          role: "user",
-          parts: [{ text: query }]
-        });
-      }
-
-      const reply = await callGeminiChatAPI(key, model, conversationHistory);
-
-      conversationHistory.push({
-        role: "model",
-        parts: [{ text: reply }]
-      });
-
-      loading.remove();
-
-      appendMessageBubble("ai", parseMarkdownToHtml(reply));
-      setStatus("Ready", false);
-    } catch (err) {
-      console.error(TAG, err);
-      setStatus("Error: " + err.message, false);
-      
-      const list = document.getElementById("wab-chat-messages");
-      const loadingBubble = list?.querySelector(".wab-chat-bubble.loading");
-      if (loadingBubble) loadingBubble.remove();
-
-      appendMessageBubble("ai", `<p style="color:var(--wab-danger)">Error: ${escapeHtml(err.message)}</p>`);
-    }
-  }
-
-  function appendMessageBubble(role, htmlContent) {
-    const list = document.getElementById("wab-chat-messages");
-    if (!list) return null;
-
-    const bubble = document.createElement("div");
-    bubble.className = `wab-chat-bubble ${role}`;
-    bubble.innerHTML = htmlContent;
-    list.appendChild(bubble);
-
-    // Scroll to bottom
-    list.scrollTop = list.scrollHeight;
-    return bubble;
-  }
-
-  function appendLoadingBubble() {
-    const html = `
-      <span>Thinking</span>
-      <span class="wab-dot-loader"></span>
-      <span class="wab-dot-loader"></span>
-      <span class="wab-dot-loader"></span>
-    `;
-    const bubble = appendMessageBubble("ai loading", html);
-    return bubble;
-  }
-
-  // Soft budget for what we send to the model. ~4 chars/token means 200k
-  // chars ≈ 50k tokens. Going over doesn't auto-truncate — it asks the USER
-  // what to do (recent only / full anyway / cancel), because it's their
-  // context window and their API bill.
-  const AI_TRANSCRIPT_CHAR_LIMIT = 200000;
-
-  function buildTranscriptLines(data) {
-    return data.messages.map((m) => {
-      const sender = m.fromMe ? "You" : m.senderName || m.author || "Contact";
-      const time = m.time ? new Date(m.time).toLocaleString() : "";
-      let content = m.body || m.caption || `[${m.type}]`;
-      if (m.quotedMsg) {
-        const quotedSender = m.quotedMsg.senderName || m.quotedMsg.participant || "Someone";
-        const quotedBody = m.quotedMsg.body || m.quotedMsg.caption || `[${m.quotedMsg.type}]`;
-        content = `(Replying to ${quotedSender}: "${quotedBody.slice(0, 50)}") ${content}`;
-      }
-      return `[${time}] ${sender}: ${content}`;
-    });
-  }
-
-  // Shows an inline choice bubble and resolves with "recent" | "full" | "cancel".
-  // Hides any "Thinking…" loader while waiting so the UI isn't misleading.
-  function askTruncationChoice(droppedCount, keptCount, totalCount) {
-    return new Promise((resolve) => {
-      const loadingEl = document.querySelector("#wab-chat-messages .wab-chat-bubble.loading");
-      if (loadingEl) loadingEl.style.display = "none";
-
-      const bubble = document.createElement("div");
-      bubble.className = "wab-chat-bubble ai";
-      bubble.innerHTML =
-        `<p><strong>This chat is large.</strong> All ${totalCount} messages exceed the
-         recommended context size for the model — sending everything may fail or cost more.</p>
-        <div class="wab-bubble-actions" style="flex-wrap:wrap">
-          <button class="wab-bubble-btn" data-choice="recent">Use recent ${keptCount} messages</button>
-          <button class="wab-bubble-btn" data-choice="full">Send full anyway</button>
-          <button class="wab-bubble-btn" data-choice="cancel">Cancel</button>
-        </div>`;
-
-      // Host the prompt wherever the user currently is: the welcome view
-      // (Load step — messages list still hidden) or the conversation list.
-      const welcome = document.getElementById("wab-chat-welcome");
-      if (welcome && welcome.style.display !== "none") {
-        welcome.appendChild(bubble);
-      } else {
-        const list = document.getElementById("wab-chat-messages");
-        list.appendChild(bubble);
-        list.scrollTop = list.scrollHeight;
-      }
-
-      const done = (choice) => {
-        bubble.remove();
-        if (loadingEl) loadingEl.style.display = "";
-        resolve(choice);
-      };
-      bubble.querySelectorAll("[data-choice]").forEach((b) =>
-        b.addEventListener("click", () => done(b.getAttribute("data-choice")))
-      );
-    });
-  }
-
-  // Builds the transcript. If it's over budget, asks the user how to proceed.
-  // Throws on cancel (caller's catch shows it in the status line).
-  async function prepareTranscript(data) {
-    const lines = buildTranscriptLines(data);
-    const totalLen = lines.reduce((sum, l) => sum + l.length + 1, 0);
-    if (totalLen <= AI_TRANSCRIPT_CHAR_LIMIT) return lines.join("\n");
-
-    // Work out how many of the newest messages fit the budget.
-    let total = 0;
-    let firstKept = lines.length;
-    for (let i = lines.length - 1; i >= 0; i--) {
-      total += lines[i].length + 1;
-      if (total > AI_TRANSCRIPT_CHAR_LIMIT) break;
-      firstKept = i;
-    }
-    const dropped = firstKept;
-    const keptCount = lines.length - firstKept;
-
-    setStatus("Waiting for your choice…", false);
-    const choice = await askTruncationChoice(dropped, keptCount, lines.length);
-
-    if (choice === "cancel")
-      throw new Error("Cancelled. Narrow the date range in ⚙️ settings and try again.");
-    if (choice === "full") return lines.join("\n");
-
-    const kept = lines.slice(firstKept);
-    const note =
-      `[NOTE: At the user's request this transcript contains only the most recent ` +
-      `${keptCount} messages; the oldest ${dropped} were omitted. If asked about older ` +
-      `history, say it isn't included and suggest narrowing the export date range.]\n\n`;
-    return note + kept.join("\n");
-  }
-
-  async function callGeminiChatAPI(key, model, contents) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        // Key goes in a header, not the URL — keeps it out of request logs.
-        "x-goog-api-key": key,
-      },
-      body: JSON.stringify({ contents })
-    });
-
-    if (!response.ok) {
-      let errText = "";
-      try {
-        const errJson = await response.json();
-        errText = errJson.error?.message || response.statusText;
-      } catch (e) {
-        errText = response.statusText;
-      }
-      // Token/context overflows get a hint the user can actually act on.
-      if (/token|context|too (?:long|large)|exceeds/i.test(errText)) {
-        errText += " — try narrowing the export date range (⚙️ settings) to shrink the transcript.";
-      }
-      throw new Error(`Gemini API: ${errText}`);
-    }
-
-    const resJson = await response.json();
-    const text = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) {
-      throw new Error("No response content from Gemini");
-    }
-    return text;
-  }
 
   function parseMarkdownToHtml(md) {
     let html = escapeHtml(md);
@@ -963,50 +534,49 @@ User Question: ${query}`;
     "getMessages", "searchMessages", "downloadMedia", "exportChat", "exportActiveChat"
   ]);
 
-  // Switch between Local and Agent mode views.
+  // Switch between Manual (export) and Agent mode views.
   function switchMode(mode) {
     currentMode = mode;
     const sidebar = document.getElementById("wa-backup-sidebar");
     if (!sidebar) return;
 
-    // Local mode containers
+    // Manual (export) containers
     const localContent = sidebar.querySelector(".wab-sidebar-content:not(#wab-agent-container)");
     const localStatus = document.getElementById("wab-status");
-    const localInput = document.getElementById("wab-chat-input-bar");
-    const settingsBtn = document.getElementById("wab-settings-toggle");
 
     // Agent mode containers
     const agentContainer = document.getElementById("wab-agent-container");
     const agentStatus = document.getElementById("wab-agent-status");
     const agentInput = document.getElementById("wab-agent-input-bar");
+    const agentSettingsBtn = document.getElementById("wab-agent-settings-toggle");
 
     // Header dot: swap between accent dot and connection dot
     const titleDot = document.getElementById("wab-title-dot");
 
     if (mode === "agent") {
-      // Hide local, show agent
+      // Hide manual, show agent
       if (localContent) localContent.style.display = "none";
       if (localStatus) localStatus.style.display = "none";
-      if (localInput) localInput.style.display = "none";
-      if (settingsBtn) settingsBtn.style.display = "none";
       if (agentContainer) agentContainer.style.display = "flex";
       if (agentInput) agentInput.classList.remove("hidden");
+      if (agentSettingsBtn) agentSettingsBtn.style.display = "";
       if (titleDot) {
         titleDot.className = "wab-conn-dot connecting";
       }
       // Connect to backend
       ensureAgentClient();
     } else {
-      // Hide agent, show local
+      // Hide agent, show manual
       if (agentContainer) agentContainer.style.display = "none";
       if (agentStatus) agentStatus.textContent = "";
       if (agentInput) agentInput.classList.add("hidden");
+      if (agentSettingsBtn) agentSettingsBtn.style.display = "none";
+      // collapse the settings panel so it isn't open next time
+      document.getElementById("wab-agent-settings")?.classList.add("collapsed");
       if (localContent) localContent.style.display = "flex";
       if (localStatus) localStatus.style.display = "";
-      if (localInput) localInput.style.display = "";
-      if (settingsBtn) settingsBtn.style.display = "";
       if (titleDot) {
-        titleDot.className = "wab-accent-dot";
+        titleDot.className = "wab-title-status-dot";
       }
       // Don't disconnect — keep alive so switching back is instant
     }
@@ -1018,6 +588,30 @@ User Question: ${query}`;
     }
     if (!agentClient.isConnected()) {
       agentClient.connect();
+    }
+  }
+
+  // First-run empty state for Agent mode: tell the user, in plain language,
+  // whether the local backend is reachable and what to do if it isn't. Without
+  // this, a missing backend is invisible until a query silently fails.
+  function updateAgentConnBanner(state) {
+    const banner = document.getElementById("wab-agent-conn-banner");
+    if (!banner) return;
+    if (state === "connected") {
+      banner.classList.add("hidden");
+      banner.innerHTML = "";
+    } else if (state === "connecting") {
+      banner.classList.remove("hidden");
+      banner.innerHTML = `<span class="wab-status-spinner"></span> Connecting to the local backend…`;
+    } else {
+      // disconnected
+      banner.classList.remove("hidden");
+      banner.innerHTML =
+        `<span class="wab-banner-icon">${icon("triangle-alert", 16)}</span>` +
+        `<strong>Backend not detected.</strong> Start it with ` +
+        `<code>uv run fastapi dev main.py</code> in the <code>backend</code> folder — ` +
+        `it connects automatically once it's up. No backend? Switch to <strong>Manual</strong> ` +
+        `mode above; it runs in your browser with your own API key, no server needed.`;
     }
   }
 
@@ -1052,8 +646,8 @@ User Question: ${query}`;
       bubble.className = "wab-permission-bubble";
       bubble.innerHTML = `
         <div class="wab-perm-text">
-          <span class="wab-perm-icon">🔒</span>
-          Agent wants to read <span class="wab-perm-chat-name">「${escapeHtml(chatName || chatId)}」</span>
+          <span class="wab-perm-icon">${icon("lock", 16)}</span>
+          Agent wants to read <span class="wab-perm-chat-name">${escapeHtml(chatName || chatId)}</span>
         </div>
         <div class="wab-perm-actions">
           <button class="wab-perm-btn allow" data-choice="allow_once">Allow once</button>
@@ -1139,7 +733,7 @@ User Question: ${query}`;
 
     const action = actionMap[name];
     if (!action) {
-      throw new Error(`Unknown tool: ${name}`);
+      throw new Error("Unknown action");
     }
 
     // exportChat is handled locally using existing exporter
@@ -1272,7 +866,13 @@ User Question: ${query}`;
     }
 
     sendUserMessage(text) {
-      return this.send({ type: "user_message", text });
+      // Web-first model/key: custom text beats the dropdown; blank => backend
+      // uses its .env defaults. For local (ollama/*) models no key is needed.
+      const sel = document.getElementById("wab-agent-model")?.value || "";
+      const custom = document.getElementById("wab-agent-model-custom")?.value?.trim() || "";
+      const model = custom || sel || undefined;
+      const apiKey = document.getElementById("wab-agent-key")?.value?.trim() || undefined;
+      return this.send({ type: "user_message", text, model, apiKey });
     }
 
     _scheduleReconnect() {
@@ -1285,9 +885,10 @@ User Question: ${query}`;
     }
 
     _updateConnectionDot(state) {
+      if (currentMode !== "agent") return;
       const dot = document.getElementById("wab-title-dot");
-      if (!dot || currentMode !== "agent") return;
-      dot.className = "wab-conn-dot " + state;
+      if (dot) dot.className = "wab-conn-dot " + state;
+      updateAgentConnBanner(state);
     }
 
     async _handleMessage(msg) {
@@ -1321,7 +922,23 @@ User Question: ${query}`;
 
     async _handleToolCall(msg) {
       const { id, name, args } = msg;
-      this._setAgentStatus(`Using ${name}...`);
+      const friendly = {
+        list_chats: "Listing chats",
+        get_messages: "Fetching messages",
+        search_messages: "Searching messages",
+        get_active_chat: "Checking active chat",
+        transcribe_media: "Processing media",
+        visit_url: "Reading webpage",
+        export_chat: "Exporting chat",
+        // camelCase variants (from inject.js action names)
+        listChats: "Listing chats",
+        getMessages: "Fetching messages",
+        searchMessages: "Searching messages",
+        downloadMedia: "Downloading media",
+        activeChat: "Checking active chat",
+        exportChat: "Exporting chat",
+      }[name] || "Working";
+      this._setAgentStatus(`${friendly}…`);
       try {
         const result = await executeToolCall(name, args);
         this.send({ type: "tool_result", id, ok: true, result });
