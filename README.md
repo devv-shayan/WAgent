@@ -1,4 +1,8 @@
-# WhatsApp agent that asks before it reads
+<p align="center">
+  <img src="assets/logo.svg" alt="WAgent Logo" width="96" height="96">
+</p>
+
+# WAgent — WhatsApp agent that asks before it reads
 
 A Chrome extension that puts an AI agent inside your own WhatsApp Web session. It answers questions about your chats — "did anything important happen in the finance group this week?" — without you scrolling through hundreds of messages.
 
@@ -43,7 +47,7 @@ This hooks into WhatsApp Web's front-end via [WA-JS](https://github.com/wppconne
 
 ## Two modes
 
-1. **Local Copilot** — a sidebar chat that runs entirely in the browser with your own Gemini API key. Scope questions to a date range (last 7 / 30 days) to keep context small. No backend needed.
+1. **Manual mode** — export any chat to JSON, HTML, or CSV, scoped to a date range (last 7 / 30 days or a custom range). Runs entirely in the browser — no backend, no API key. Just export.
 2. **Agent Mode** — connects the sidebar to a local Python backend (OpenAI Agents SDK). This is where on-demand querying, media transcription, link reading, and long-term memory live.
 
 ---
@@ -54,7 +58,7 @@ This hooks into WhatsApp Web's front-end via [WA-JS](https://github.com/wppconne
 WhatsApp Web (Chrome Extension)              Local Python Backend
 ┌──────────────────────────────┐             ┌──────────────────────────────┐
 │ content.js (Isolated)        │             │ FastAPI  ws://127.0.0.1:8787 │
-│  • Local / Agent Sidebar UI  │             │  • Agents SDK Runner         │
+│  • Manual / Agent Sidebar UI │             │  • Agents SDK Runner         │
 │  • Permissions Gate & Store  │◀─WebSocket─▶│  • Text: LiteLLM             │
 │  • Tool RPC Dispatcher       │             │    (Gemini OR local Ollama)  │
 │ inject.js (Main / WA-JS)     │             │  • Media: Gemini (genai SDK) │
@@ -86,10 +90,14 @@ You need the [`uv`](https://docs.astral.sh/uv/) package manager.
 
 ```bash
 cd backend
-cp .env.example .env          # add your GEMINI_API_KEY
+cp .env.example .env          # optional: set GEMINI_API_KEY / AGENT_MODEL here
 uv sync                       # install dependencies
 uv run fastapi dev main.py    # dev server on port 8787
 ```
+
+The `.env` key/model are optional — you can instead type your own API key and pick
+a model (cloud or local) in the extension's **Agent settings** (the gear icon in
+Agent mode). Web settings override `.env`; leave them blank to use `.env`.
 
 **Optional — run the text agent fully local:**
 
@@ -105,14 +113,14 @@ Note: media transcription still uses Gemini even with a local text model (see th
 ### 3. Run it
 1. Open https://web.whatsapp.com and open a chat.
 2. Click the green **Export chat** button (bottom right) to open the sidebar.
-3. Toggle from **Local** to **Agent**. The status light turns green when connected.
+3. Toggle from **Manual** to **Agent**. The status light turns green when connected.
 
 ---
 
 ## Project status
 
 - [x] Text export to JSON, CSV, and HTML
-- [x] Local Copilot: in-browser, date-scoped AI chat
+- [x] Manual mode: in-browser, date-scoped chat export (JSON/HTML/CSV)
 - [x] Agent Mode: bidirectional WebSocket bridge
 - [x] Permissions gate: per-chat authorization store
 - [x] Multimodal transcription (voice, video, images) — via cloud Gemini

@@ -1,13 +1,25 @@
 {
   "manifest_version": 3,
-  "name": "WA Chat Backup (personal)",
+  "name": "WAgent",
   "version": "0.1.0",
-  "description": "Export your own WhatsApp Web chats to JSON / HTML / media. For personal backup use.",
+  "description": "A WhatsApp agent that asks before it reads. Query your chats, transcribe media, and export to JSON/HTML/CSV — runs on your machine.",
+  "icons": {
+    "16": "assets/icon-16.png",
+    "32": "assets/icon-32.png",
+    "48": "assets/icon-48.png",
+    "128": "assets/icon-128.png"
+  },
   "host_permissions": [
     "https://web.whatsapp.com/*",
     "https://generativelanguage.googleapis.com/*"
   ],
   "permissions": ["storage"],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/icon-32.png", "assets/icon-128.png", "assets/logo.svg"],
+      "matches": ["https://web.whatsapp.com/*"]
+    }
+  ],
   "content_scripts": [
     {
       "matches": ["https://web.whatsapp.com/*"],

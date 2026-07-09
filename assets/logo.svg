@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!--
+    WAgent logo.
+    Inspired by the messaging-bubble language of WhatsApp, but deliberately
+    distinct: teal-to-green gradient squircle (project design tokens), tail on
+    the bottom-RIGHT, and a "W" waveform glyph with an agent spark instead of
+    a phone. No WhatsApp trademark elements are reproduced.
+  -->
+  <defs>
+    <linearGradient id="wag-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#06cf9c"/>
+      <stop offset="1" stop-color="#008069"/>
+    </linearGradient>
+    <linearGradient id="wag-glyph" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00a884"/>
+      <stop offset="1" stop-color="#006b57"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background squircle -->
+  <rect x="4" y="4" width="120" height="120" rx="30" fill="url(#wag-bg)"/>
+
+  <!-- Chat bubble, tail bottom-right -->
+  <path fill="#ffffff" d="
+    M 40 30
+    H 88
+    A 16 16 0 0 1 104 46
+    V 70
+    A 16 16 0 0 1 88 86
+    H 78
+    L 96 102
+    Q 78 98 64 86
+    H 40
+    A 16 16 0 0 1 24 70
+    V 46
+    A 16 16 0 0 1 40 30
+    Z"/>
+
+  <!-- W waveform -->
+  <polyline points="40,48 51,72 64,56 77,72 88,48"
+            fill="none" stroke="url(#wag-glyph)" stroke-width="8"
+            stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Agent spark above the middle peak -->
+  <circle cx="64" cy="42" r="4.5" fill="url(#wag-glyph)"/>
+</svg>
