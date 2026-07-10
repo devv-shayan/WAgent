@@ -94,30 +94,30 @@ alone. Run the same steps for each person and check them off.
       web.whatsapp.com in Chrome.
 - [ ] **Load the extension.** `chrome://extensions` → Developer mode on →
       Load unpacked → select the repo folder. (Ship them the folder or a zip.)
-- [ ] **Windows shortcut — one command replaces the next three steps.** In the
-      `backend` folder run `powershell -ExecutionPolicy Bypass -File install.ps1`
-      — it installs `uv`, creates `.env`, installs dependencies, and sets up
-      auto-start in one go. Then skip to "Provide the model key" (paste it into
-      `.env` or the extension's Agent settings) and "Connect". On Mac/Linux, do
-      the steps below manually.
-- [ ] **Install `uv`.** Walk them through the one-line installer from
-      https://docs.astral.sh/uv/ for their OS. (It's OS-agnostic; Win/Mac/Linux
-      all work.)
+- [ ] **Windows — one command sets up the backend + auto-start.** In the
+      `backend` folder run:
+      `powershell -ExecutionPolicy Bypass -File install.ps1 -SkipLocal`
+      — this installs `uv`, dependencies, and auto-start in one go. **Use
+      `-SkipLocal`** for white-glove setups: the installer's default local
+      model (Gemma 4 2B) is noticeably less reliable at tool-calling than
+      cloud Gemini, and a paying/first-impression user should get the
+      reliable path, not the privacy-optimized one. Then do "Provide the
+      model key" below and skip straight to "Connect." Mac/Linux: no
+      installer yet, do the steps below manually.
+- [ ] **Install `uv`** (Mac/Linux, or if you skipped the Windows installer).
+      One-line installer from https://docs.astral.sh/uv/ for their OS.
 - [ ] **Provide the model key.** Give them a Gemini API key YOU control (or walk
       them through making a free one). Provisioning a key must not be their
       problem. Note: you're paying for their usage if you share your key. Gemini
       flash-lite is cheap, and 5 users for 2 weeks is negligible, but cap or watch
-      it.
-- [ ] **Configure `.env`.** `cd backend && cp .env.example .env`, paste the key.
-      Leave `AGENT_MODEL` on the cloud default for this test; local-model quality
-      isn't what you're validating here.
-- [ ] **Start the backend.** `uv sync`, then on Windows run
-      `powershell -ExecutionPolicy Bypass -File install-autostart.ps1` — this
-      starts the backend hidden AND makes it auto-start at login, so it
-      survives reboots without the user touching a terminal (this was the #1
-      predicted churn cause). On Mac/Linux for now:
-      `uv run fastapi dev main.py --port 8787` + a restart note. Confirm port
-      8787 is up.
+      it. Paste it into `backend/.env` (`GEMINI_API_KEY=...`) or directly into the
+      extension's Agent settings panel (gear icon, Agent mode) — either works.
+- [ ] **Mac/Linux only — configure and start manually.** `cd backend`,
+      `cp .env.example .env`, paste the key, `uv sync`, then
+      `uv run fastapi dev main.py --port 8787`. Leave `AGENT_MODEL` on the
+      cloud default (don't switch to a local model for this test — same
+      reliability reasoning as above). Confirm port 8787 is up. Leave a
+      restart note (see below) since there's no auto-start on these OSes yet.
 - [ ] **Connect.** Open a chat, click the green Export/Agent button, toggle to
       Agent, confirm the status light goes green.
 - [ ] **One guided query, then stop guiding.** Have them ask ONE real question

@@ -10,7 +10,7 @@ Three things make it different from a chat summarizer:
 
 1. **It asks permission, per chat, and you watch it ask.** Before the agent reads any conversation or transcribes any media, a prompt appears on the page: *"Agent wants to read [Chat Name]"* — Allow once, Always allow, or Deny. Nothing is read silently.
 2. **You can read the code.** It's open source. The whole point of a tool that touches your private messages is that you can audit exactly what it does. Nothing is hidden in a server you can't see.
-3. **You can run the brain on your own machine.** The text agent runs against a local model (via Ollama) if you want it to — your message text never leaves your computer. Cloud (Gemini) is the default for quality; local is one config line away.
+3. **The brain runs on your own machine, by default.** The one-command Windows installer sets up a local model (Gemma 4 via Ollama) as the agent's default text model — your message text never leaves your computer, out of the box. Prefer cloud Gemini for speed/quality instead? Switch anytime, one line.
 
 It runs *inside* your existing, already-logged-in WhatsApp Web tab. It does not link a new device, scan a QR code, or open a second session — so it behaves like you using WhatsApp Web, not like a bot logging in beside you.
 
@@ -31,11 +31,11 @@ Be precise about this, because "private" claims are easy to overstate.
 
 | Part | Today | Notes |
 |------|-------|-------|
-| **Text agent** | **Local option available** | Set `AGENT_MODEL=ollama_chat/<model>` and your message text stays on your machine. Cloud (Gemini) is the default. Verify with `uv run python verify_local.py`. |
+| **Text agent** | **Local by default (Windows installer)** | `install.ps1` sets up a local model (`ollama_chat/gemma4:e2b`) as the default — your message text never leaves your machine. Manual setup (`.env.example`) defaults to cloud Gemini instead; switch either way anytime by setting `AGENT_MODEL=ollama_chat/<model>` in `.env` or the extension's Agent settings. Verify with `uv run python verify_local.py`. |
 | **Media transcription** | **Cloud (Gemini) only, for now** | Voice notes, video, and images are uploaded to Google Gemini for transcription, then deleted from disk and from Gemini's API. This needs `GEMINI_API_KEY` even if the text model is local. |
 | **Message data** | **Stays in your browser + local backend** | Messages live in your WhatsApp Web session and a local SQLite DB. They're only sent to a model when the agent reads them through a tool you approved. |
 
-**On the roadmap:** fully-local media transcription using an open multimodal on-device model (Gemma 4 on Ollama handles text, images, audio, and video). It's a real option but not shipped yet — and a small on-device model transcribes less accurately than cloud Gemini, so it will be a privacy-vs-quality choice, not a strict upgrade. Until then, media transcription is cloud.
+**Shipped:** the local text agent (Gemma 4 via Ollama, `ollama_chat/gemma4:e2b`) — the Windows installer sets this as the default. **On the roadmap:** wiring that same local model into media transcription (Gemma 4 also supports images, audio, and video). It's technically possible today but not wired up yet, and a small on-device model transcribes less accurately than cloud Gemini, so it'll be a privacy-vs-quality choice, not a strict upgrade. Until then, media transcription is cloud-only, regardless of which text model you use.
 
 ---
 
