@@ -114,7 +114,10 @@ uv run fastapi dev main.py --port 8787    # dev server (the extension expects po
 
 The `.env` key/model are optional — you can instead type your own API key and pick
 a model (cloud or local) in the extension's **Agent settings** (the gear icon in
-Agent mode). Web settings override `.env`; leave them blank to use `.env`.
+Agent mode). Web settings override `.env`; leave them blank to use `.env`. Hit
+**Refresh models** there to pull the real, current model list for your key
+(Gemini) or whatever's actually pulled (Ollama) straight from the provider —
+no more guessing which model names are still valid.
 
 **Optional — run the text agent fully local:**
 

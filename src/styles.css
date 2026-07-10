@@ -961,3 +961,32 @@ body:not(.dark):not(.theme-dark) #wa-backup-btn:hover {
   font-size: 11px;
   line-height: 1.4;
 }
+
+/* Provider row (select + Refresh models button) inside the Agent settings
+   panel, and its live-status line under it. */
+#wa-backup-sidebar .wab-provider-row {
+  display: flex;
+  gap: var(--wab-space-sm);
+  align-items: center;
+}
+#wa-backup-sidebar .wab-provider-row select {
+  flex: 1;
+}
+#wa-backup-sidebar .wab-provider-row button {
+  flex-shrink: 0;
+  padding: var(--wab-space-sm) var(--wab-space-md);
+  background-color: var(--wab-accent-teal);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: var(--wab-font-family);
+  cursor: pointer;
+  white-space: nowrap;
+}
+#wa-backup-sidebar .wab-provider-row button:hover {
+  background-color: var(--wab-accent-teal-hover);
+}
+#wa-backup-sidebar #wab-agent-models-status {
+  min-height: 14px;
+}

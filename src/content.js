@@ -147,10 +147,19 @@
         <div id="wab-agent-settings" class="wab-agent-settings collapsed">
           <div class="wab-sub-title">API key</div>
           <input type="password" id="wab-agent-key" placeholder="Your API key (not needed for local models)">
+          <div class="wab-sub-title">Provider</div>
+          <div class="wab-provider-row">
+            <select id="wab-agent-provider">
+              <option value="gemini">Gemini (cloud)</option>
+              <option value="ollama_chat">Ollama (local)</option>
+            </select>
+            <button type="button" id="wab-agent-models-refresh" title="Fetch live model list from the provider">Refresh models</button>
+          </div>
+          <div class="wab-hint" id="wab-agent-models-status"></div>
           <div class="wab-sub-title">Model</div>
           <select id="wab-agent-model">
             <option value="">Backend default (.env)</option>
-            <optgroup label="Gemini (cloud)">
+            <optgroup label="Gemini (cloud)" id="wab-agent-model-group-gemini">
               <option value="gemini/gemini-3.5-flash">Gemini 3.5 Flash (Recommended)</option>
               <option value="gemini/gemini-3.5-pro">Gemini 3.5 Pro</option>
               <option value="gemini/gemini-3.1-pro">Gemini 3.1 Pro (Reasoning)</option>
@@ -158,14 +167,17 @@
               <option value="gemini/gemini-2.5-flash">Gemini 2.5 Flash</option>
               <option value="gemini/gemini-2.5-pro">Gemini 2.5 Pro</option>
             </optgroup>
-            <optgroup label="Local (Ollama)">
+            <optgroup label="Local (Ollama)" id="wab-agent-model-group-ollama">
               <option value="ollama_chat/gemma4:e2b">Gemma 4 2B (installer default)</option>
               <option value="ollama_chat/gemma4:e4b">Gemma 4 4B</option>
               <option value="ollama_chat/llama3.1">Llama 3.1</option>
             </optgroup>
           </select>
           <input type="text" id="wab-agent-model-custom" placeholder="Custom model (optional), e.g. ollama_chat/qwen3">
-          <div class="wab-hint">Web settings override .env. Leave everything blank to use the backend's .env.</div>
+          <div class="wab-hint">This list is a fallback. Pick a provider above and hit "Refresh
+            models" to load the real, current models for your key (Gemini) or what's actually
+            pulled (Ollama) — no guessing which model names are still valid.
+            Web settings override .env. Leave everything blank to use the backend's .env.</div>
         </div>
         <div class="wab-chat-container">
           <div id="wab-agent-welcome" class="wab-agent-welcome">
@@ -259,33 +271,45 @@
       document.getElementById("wab-agent-settings")?.classList.toggle("collapsed");
     });
     const agentKeyEl = document.getElementById("wab-agent-key");
+    const agentProviderEl = document.getElementById("wab-agent-provider");
     const agentModelEl = document.getElementById("wab-agent-model");
     const agentModelCustomEl = document.getElementById("wab-agent-model-custom");
+    const agentModelsRefreshBtn = document.getElementById("wab-agent-models-refresh");
     agentKeyEl?.addEventListener("input", (e) => chrome.storage.local.set({ agentKey: e.target.value }));
+    agentKeyEl?.addEventListener("blur", () => refreshAgentModels());
+    agentProviderEl?.addEventListener("change", (e) => {
+      chrome.storage.local.set({ agentProvider: e.target.value });
+      refreshAgentModels();
+    });
     agentModelEl?.addEventListener("change", (e) => chrome.storage.local.set({ agentModel: e.target.value }));
     agentModelCustomEl?.addEventListener("input", (e) => chrome.storage.local.set({ agentModelCustom: e.target.value }));
+    agentModelsRefreshBtn?.addEventListener("click", () => refreshAgentModels());
 
     // Restore agent settings, then land in the last-used mode. Agent-first:
     // first-ever open defaults to Agent (the point of the product); a user who
     // prefers Manual export keeps landing there after one toggle.
-    chrome.storage.local.get(["lastMode", "agentKey", "agentModel", "agentModelCustom"], (res) => {
-      if (agentKeyEl && res.agentKey) agentKeyEl.value = res.agentKey;
-      if (agentModelEl && res.agentModel) agentModelEl.value = res.agentModel;
-      if (agentModelCustomEl && res.agentModelCustom) agentModelCustomEl.value = res.agentModelCustom;
+    chrome.storage.local.get(
+      ["lastMode", "agentKey", "agentProvider", "agentModel", "agentModelCustom"],
+      (res) => {
+        if (agentKeyEl && res.agentKey) agentKeyEl.value = res.agentKey;
+        if (agentProviderEl && res.agentProvider) agentProviderEl.value = res.agentProvider;
+        if (agentModelEl && res.agentModel) agentModelEl.value = res.agentModel;
+        if (agentModelCustomEl && res.agentModelCustom) agentModelCustomEl.value = res.agentModelCustom;
 
-      const startMode = res.lastMode === "local" ? "local" : "agent";
-      if (startMode !== currentMode) {
-        const targetBtn = sidebar.querySelector(`.wab-mode-btn[data-mode="${startMode}"]`);
-        const otherBtn = sidebar.querySelector(
-          `.wab-mode-btn[data-mode="${startMode === "agent" ? "local" : "agent"}"]`
-        );
-        if (targetBtn && otherBtn) {
-          otherBtn.classList.remove("active");
-          targetBtn.classList.add("active");
+        const startMode = res.lastMode === "local" ? "local" : "agent";
+        if (startMode !== currentMode) {
+          const targetBtn = sidebar.querySelector(`.wab-mode-btn[data-mode="${startMode}"]`);
+          const otherBtn = sidebar.querySelector(
+            `.wab-mode-btn[data-mode="${startMode === "agent" ? "local" : "agent"}"]`
+          );
+          if (targetBtn && otherBtn) {
+            otherBtn.classList.remove("active");
+            targetBtn.classList.add("active");
+          }
+          switchMode(startMode);
         }
-        switchMode(startMode);
       }
-    });
+    );
   }
 
   function setStatus(text, busy) {
@@ -613,6 +637,75 @@ ${rows}
         `<code>uv run fastapi dev main.py</code> in the <code>backend</code> folder — ` +
         `it connects automatically once it's up. No backend? Switch to <strong>Manual</strong> ` +
         `mode above; it runs in your browser with your own API key, no server needed.`;
+    }
+  }
+
+  // Live model discovery: asks the backend to hit the provider's real
+  // /models endpoint (via LiteLLM) instead of relying on a hardcoded list
+  // in this file — that list already went stale once (Gemini renumbered
+  // its models mid-session). Debounced + generation-guarded so a slow
+  // request can't clobber the dropdown with stale results after a newer
+  // request already finished.
+  let _modelsRefreshGen = 0;
+  let _modelsRefreshTimer = null;
+
+  function refreshAgentModels() {
+    clearTimeout(_modelsRefreshTimer);
+    _modelsRefreshTimer = setTimeout(() => _doRefreshAgentModels(), 300);
+  }
+
+  async function _doRefreshAgentModels() {
+    const provider = document.getElementById("wab-agent-provider")?.value;
+    const apiKey = document.getElementById("wab-agent-key")?.value?.trim() || "";
+    const modelSelect = document.getElementById("wab-agent-model");
+    const statusEl = document.getElementById("wab-agent-models-status");
+    if (!provider || !modelSelect) return;
+
+    if (provider !== "ollama_chat" && !apiKey) {
+      if (statusEl) statusEl.textContent = "Enter an API key above, then Refresh models.";
+      return;
+    }
+
+    const gen = ++_modelsRefreshGen;
+    if (statusEl) statusEl.textContent = "Loading models…";
+
+    let data;
+    try {
+      const res = await fetch("http://127.0.0.1:8787/models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, apiKey }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      data = await res.json();
+    } catch (e) {
+      console.error(TAG, "model discovery failed:", e);
+      if (gen === _modelsRefreshGen && statusEl) {
+        statusEl.textContent = "Could not reach the backend to load models — using the built-in list.";
+      }
+      return;
+    }
+
+    if (gen !== _modelsRefreshGen) return; // a newer request has already superseded this one
+
+    if (data.error) {
+      if (statusEl) statusEl.textContent = data.error;
+      return;
+    }
+    if (!data.models || data.models.length === 0) {
+      if (statusEl) statusEl.textContent = "No models found for this key/provider.";
+      return;
+    }
+
+    const previousValue = modelSelect.value;
+    modelSelect.innerHTML =
+      '<option value="">Backend default (.env)</option>' +
+      data.models.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join("");
+    if ([...modelSelect.options].some((o) => o.value === previousValue)) {
+      modelSelect.value = previousValue;
+    }
+    if (statusEl) {
+      statusEl.textContent = `${data.models.length} live models loaded from ${provider}.`;
     }
   }
 

@@ -22,9 +22,11 @@ import os
 import time
 from pathlib import Path
 
+import litellm
 from agents import Runner, SQLiteSession
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from openai.types.responses import ResponseTextDeltaEvent
+from pydantic import BaseModel
 
 from agent import create_agent
 from bridge import bridge
@@ -250,6 +252,70 @@ def _origin_allowed(origin: str | None) -> bool:
     if origin and origin.startswith("chrome-extension://"):
         return True
     return False
+
+
+# ---------------------------------------------------------------------------
+# Model discovery — live model lists instead of a hardcoded dropdown
+# ---------------------------------------------------------------------------
+# The extension's Agent settings panel calls this so the model dropdown
+# reflects what's actually available on the user's own key (or actually
+# pulled locally for Ollama), instead of a list we'd have to hand-maintain
+# and that goes stale (this happened once already with the Gemini list).
+
+_DISCOVERY_TIMEOUT = 15  # seconds — bounds a real network call to the provider
+_SUPPORTED_DISCOVERY_PROVIDERS = {"gemini", "ollama_chat"}
+
+
+class _ModelDiscoveryRequest(BaseModel):
+    provider: str
+    apiKey: str | None = None
+
+
+@app.post("/models")
+async def list_models(payload: _ModelDiscoveryRequest, request: Request) -> dict:
+    # Same origin allow-list as the WebSocket endpoint (main.py's CSWSH
+    # comment above applies equally here: this binds to localhost, but any
+    # page in any tab can still send a same-origin-unrestricted fetch unless
+    # we check Origin ourselves).
+    origin = request.headers.get("origin")
+    if not _origin_allowed(origin):
+        raise HTTPException(status_code=403, detail="Origin not allowed")
+
+    provider = payload.provider.strip()
+    api_key = payload.apiKey or None
+
+    if provider not in _SUPPORTED_DISCOVERY_PROVIDERS:
+        return {"models": [], "error": f"Unsupported provider: {provider}"}
+
+    try:
+        models = await asyncio.wait_for(
+            asyncio.to_thread(
+                litellm.get_valid_models,
+                check_provider_endpoint=True,
+                custom_llm_provider=provider,
+                api_key=api_key,
+            ),
+            timeout=_DISCOVERY_TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        return {"models": [], "error": "Timed out contacting the provider."}
+    except Exception:
+        # Never leak the api_key or a stack trace back to the client.
+        logger.warning("Model discovery failed for provider=%s", provider, exc_info=True)
+        return {"models": [], "error": "Could not fetch models. Check your API key."}
+
+    # LiteLLM's discovery mislabels ollama_chat results with the legacy
+    # "ollama/" prefix instead of "ollama_chat/". That exact prefix mismatch
+    # is what broke local tool-calling earlier (see agent.py / .env.example
+    # history) — correct it here so every value this endpoint returns is
+    # actually usable by the backend, not just displayable.
+    if provider == "ollama_chat":
+        models = [
+            "ollama_chat/" + m.split("/", 1)[1] if m.startswith("ollama/") else m
+            for m in models
+        ]
+
+    return {"models": sorted(set(models)), "error": None}
 
 
 # ---------------------------------------------------------------------------
