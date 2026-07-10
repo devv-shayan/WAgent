@@ -19,7 +19,9 @@ import asyncio
 import json
 import logging
 import os
+import platform
 import time
+import uuid
 from pathlib import Path
 
 import httpx
@@ -232,6 +234,35 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ---------------------------------------------------------------------------
+# Telemetry
+# ---------------------------------------------------------------------------
+TELEMETRY_URL = "https://wagent-telemetry.devvshayan.workers.dev/ping"
+
+async def _send_telemetry():
+    try:
+        install_id_file = DATA_DIR / "installation_id.txt"
+        if install_id_file.exists():
+            install_id = install_id_file.read_text().strip()
+        else:
+            install_id = str(uuid.uuid4())
+            install_id_file.write_text(install_id)
+            
+        payload = {
+            "installation_id": install_id,
+            "os": platform.system().lower(),
+            "version": "0.1.0"
+        }
+        
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            await client.post(TELEMETRY_URL, json=payload)
+    except Exception as e:
+        logger.debug(f"Telemetry ping failed: {e}")
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(_send_telemetry())
 
 # Session persistence (single-user, fixed ID)
 SESSION_DB = str(DATA_DIR / "sessions.db")

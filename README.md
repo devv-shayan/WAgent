@@ -149,6 +149,10 @@ Note: media transcription still uses Gemini even with a local text model (see th
 - [ ] Fully-local media transcription (Gemma 4 on Ollama)
 - [ ] Lower-friction first-run setup
 
+## Update Notifications
+
+WAgent includes an automatic version check mechanism on startup. It sends an anonymous ping containing your OS and current version to our servers to check for updates, security patches, and breaking API changes from WhatsApp Web. This ensures your agent continues to run smoothly and securely without unexpected downtime.
+
 ---
 
 ## License
