@@ -22,6 +22,8 @@ import os
 import time
 from pathlib import Path
 
+import httpx
+
 import litellm
 from agents import Runner, SQLiteSession
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -222,6 +224,15 @@ INSTRUCTIONS:
 
 app = FastAPI(title="WhatsApp Agent Backend")
 
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://web.whatsapp.com"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Session persistence (single-user, fixed ID)
 SESSION_DB = str(DATA_DIR / "sessions.db")
 SESSION_ID = "wa-agent"
@@ -316,6 +327,62 @@ async def list_models(payload: _ModelDiscoveryRequest, request: Request) -> dict
         ]
 
     return {"models": sorted(set(models)), "error": None}
+
+
+@app.get("/model-status")
+async def get_model_status(request: Request, model: str | None = None) -> dict:
+    # CSWSH protection: check Origin header
+    origin = request.headers.get("origin")
+    if not _origin_allowed(origin):
+        raise HTTPException(status_code=403, detail="Origin not allowed")
+
+    resolved_model = model or os.getenv("AGENT_MODEL", "gemini/gemini-2.5-flash")
+    provider = resolved_model.split("/", 1)[0] if "/" in resolved_model else resolved_model
+    is_local = provider.lower() in {"ollama", "ollama_chat"}
+
+    if not is_local:
+        return {"status": "n/a", "is_local": False}
+
+    model_name = resolved_model.split("/", 1)[1] if "/" in resolved_model else resolved_model
+
+    ollama_base = os.getenv("OLLAMA_API_BASE", "http://localhost:11434").rstrip("/")
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            resp = await client.get(f"{ollama_base}/api/ps")
+            if resp.status_code == 200:
+                data = resp.json()
+                loaded_models = data.get("models", [])
+
+                is_loaded = False
+                for m in loaded_models:
+                    loaded_name = m.get("name", "")
+                    loaded_model = m.get("model", "")
+                    if model_name == loaded_name or model_name == loaded_model:
+                        is_loaded = True
+                        break
+                    # Try matching without version tag if necessary
+                    if ":" in loaded_name and loaded_name.split(":")[0] == model_name.split(":")[0]:
+                        is_loaded = True
+                        break
+
+                return {
+                    "status": "loaded" if is_loaded else "stopped",
+                    "is_local": True,
+                    "model_name": model_name
+                }
+            else:
+                return {
+                    "status": "offline",
+                    "is_local": True,
+                    "error": f"Ollama returned status {resp.status_code}"
+                }
+    except Exception as e:
+        return {
+            "status": "offline",
+            "is_local": True,
+            "error": str(e)
+        }
+
 
 
 # ---------------------------------------------------------------------------

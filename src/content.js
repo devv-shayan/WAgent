@@ -81,6 +81,7 @@
     const existing = document.getElementById("wa-backup-sidebar");
     if (existing) {
       if (agentClient) agentClient.disconnect();
+      stopModelStatusPolling();
       existing.remove();
       adjustWhatsAppLayout(false);
       return;
@@ -94,6 +95,7 @@
           <img src="${chrome.runtime.getURL("assets/logo.svg")}" alt="WAgent" width="22" height="22" class="wab-title-logo">
           <span id="wab-title-dot" class="wab-title-status-dot"></span>
           WAgent
+          <span id="wab-model-status" class="wab-model-status-badge" style="display: none;"></span>
         </div>
         <div class="wab-sidebar-actions">
           <div class="wab-mode-toggle">
@@ -281,9 +283,18 @@
       chrome.storage.local.set({ agentProvider: e.target.value });
       refreshAgentModels();
     });
-    agentModelEl?.addEventListener("change", (e) => chrome.storage.local.set({ agentModel: e.target.value }));
-    agentModelCustomEl?.addEventListener("input", (e) => chrome.storage.local.set({ agentModelCustom: e.target.value }));
-    agentModelsRefreshBtn?.addEventListener("click", () => refreshAgentModels());
+    agentModelEl?.addEventListener("change", (e) => {
+      chrome.storage.local.set({ agentModel: e.target.value });
+      updateModelStatus();
+    });
+    agentModelCustomEl?.addEventListener("input", (e) => {
+      chrome.storage.local.set({ agentModelCustom: e.target.value });
+      updateModelStatus();
+    });
+    agentModelsRefreshBtn?.addEventListener("click", () => {
+      refreshAgentModels();
+      updateModelStatus();
+    });
 
     // Restore agent settings, then land in the last-used mode. Agent-first:
     // first-ever open defaults to Agent (the point of the product); a user who
@@ -590,6 +601,7 @@ ${rows}
       }
       // Connect to backend
       ensureAgentClient();
+      startModelStatusPolling();
     } else {
       // Hide agent, show manual
       if (agentContainer) agentContainer.style.display = "none";
@@ -604,6 +616,7 @@ ${rows}
         titleDot.className = "wab-title-status-dot";
       }
       // Don't disconnect — keep alive so switching back is instant
+      stopModelStatusPolling();
     }
   }
 
@@ -879,6 +892,72 @@ ${rows}
     return { success: true, format: fmt, messageCount: exportData.messageCount };
   }
 
+  // --- Local Model Status Polling --------------------------------------------
+  let _modelStatusInterval = null;
+
+  function startModelStatusPolling() {
+    stopModelStatusPolling();
+    _modelStatusInterval = setInterval(updateModelStatus, 5000);
+    updateModelStatus();
+  }
+
+  function stopModelStatusPolling() {
+    if (_modelStatusInterval) {
+      clearInterval(_modelStatusInterval);
+      _modelStatusInterval = null;
+    }
+    const badge = document.getElementById("wab-model-status");
+    if (badge) {
+      badge.style.display = "none";
+    }
+  }
+
+  async function updateModelStatus() {
+    if (currentMode !== "agent") {
+      stopModelStatusPolling();
+      return;
+    }
+    const badge = document.getElementById("wab-model-status");
+    if (!badge) return;
+
+    const sel = document.getElementById("wab-agent-model")?.value || "";
+    const custom = document.getElementById("wab-agent-model-custom")?.value?.trim() || "";
+    const model = custom || sel || "";
+
+    if (!agentClient || !agentClient.isConnected()) {
+      badge.style.display = "none";
+      return;
+    }
+
+    try {
+      const url = new URL("http://127.0.0.1:8787/model-status");
+      if (model) {
+        url.searchParams.set("model", model);
+      }
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      if (data.is_local) {
+        badge.style.display = "inline-block";
+        badge.className = `wab-model-status-badge ${data.status}`;
+        badge.textContent = ""; // Keep empty, style as a dot
+        if (data.status === "loaded") {
+          badge.title = `Model Ready: The local model (${data.model_name}) is currently loaded in VRAM/RAM for fast responses.`;
+        } else if (data.status === "stopped") {
+          badge.title = `Model Stopped: The local model (${data.model_name}) is unloaded to save system memory. It will load automatically on your next query.`;
+        } else if (data.status === "offline") {
+          badge.title = "Ollama Offline: The Ollama service is not running on your machine.";
+        }
+      } else {
+        badge.style.display = "none";
+      }
+    } catch (e) {
+      console.warn(TAG, "failed to fetch model status:", e);
+      badge.style.display = "none";
+    }
+  }
+
   // --- AgentClient (WebSocket) ------------------------------------------------
 
   class AgentClient {
@@ -981,8 +1060,18 @@ ${rows}
     _updateConnectionDot(state) {
       if (currentMode !== "agent") return;
       const dot = document.getElementById("wab-title-dot");
-      if (dot) dot.className = "wab-conn-dot " + state;
+      if (dot) {
+        dot.className = "wab-conn-dot " + state;
+        if (state === "connected") {
+          dot.title = "Backend connected — WAgent is communicating with the local server.";
+        } else if (state === "connecting") {
+          dot.title = "Backend connecting — Trying to reach the local server...";
+        } else {
+          dot.title = "Backend disconnected — Make sure your local server is running.";
+        }
+      }
       updateAgentConnBanner(state);
+      updateModelStatus();
     }
 
     async _handleMessage(msg) {

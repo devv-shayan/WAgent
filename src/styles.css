@@ -159,6 +159,29 @@ body:not(.dark):not(.theme-dark) #wa-backup-btn:hover {
 .wab-conn-dot.connecting {
   display: inline-block;
 }
+/* Local model status dot */
+.wab-model-status-badge {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-left: 6px;
+  display: inline-block;
+  flex-shrink: 0;
+  transition: background-color 0.3s ease;
+  vertical-align: middle;
+}
+.wab-model-status-badge.loaded {
+  background-color: #00a884;
+  box-shadow: 0 0 6px rgba(0, 168, 132, 0.5);
+}
+.wab-model-status-badge.stopped {
+  background-color: #888;
+  box-shadow: 0 0 4px rgba(120, 120, 120, 0.4);
+}
+.wab-model-status-badge.offline {
+  background-color: var(--wab-danger);
+  box-shadow: 0 0 6px rgba(234, 67, 53, 0.4);
+}
 .wab-sidebar-actions {
   display: flex;
   align-items: center;
