@@ -159,11 +159,12 @@
               <option value="gemini/gemini-2.5-pro">Gemini 2.5 Pro</option>
             </optgroup>
             <optgroup label="Local (Ollama)">
-              <option value="ollama/llama3.1">Llama 3.1</option>
-              <option value="ollama/gemma4:e4b">Gemma 4</option>
+              <option value="ollama_chat/gemma4:e2b">Gemma 4 2B (installer default)</option>
+              <option value="ollama_chat/gemma4:e4b">Gemma 4 4B</option>
+              <option value="ollama_chat/llama3.1">Llama 3.1</option>
             </optgroup>
           </select>
-          <input type="text" id="wab-agent-model-custom" placeholder="Custom model (optional), e.g. ollama/qwen3">
+          <input type="text" id="wab-agent-model-custom" placeholder="Custom model (optional), e.g. ollama_chat/qwen3">
           <div class="wab-hint">Web settings override .env. Leave everything blank to use the backend's .env.</div>
         </div>
         <div class="wab-chat-container">

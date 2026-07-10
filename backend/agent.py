@@ -47,11 +47,30 @@ chat_id and message id to get a description (for images/video) or \
 transcription (for voice notes). Always do this proactively when a user \
 asks about media content — don't say you can't see it.
 7. NO TOOL LEAKS: Never mention internal tool names (e.g., `list_chats`, `get_messages`, `search_messages`, `get_active_chat`, `transcribe_media`, `visit_url`, `export_chat`) in your responses to the user. Always describe what you are doing in natural language instead of referring to the underlying functions.
+8. USE TOOL RESULTS: After a tool returns data, your reply MUST be built \
+from that data — name the actual chats, messages, or content it returned. \
+Never reply with a generic greeting or a description of your capabilities \
+after fetching data.
 """
 
 # ---------------------------------------------------------------------------
 # Tool definitions — each calls the extension bridge
 # ---------------------------------------------------------------------------
+
+
+def _tool_json(result: object) -> str:
+    """Serialize a tool result as clean JSON for the model.
+
+    Python's repr (str(result)) is hostile input for small local models —
+    single quotes, nested dicts, no guarantees. Proper JSON is what models
+    are trained to read. Falls back to str() for non-serializable objects.
+    """
+    import json
+
+    try:
+        return json.dumps(result, ensure_ascii=False, default=str)
+    except (TypeError, ValueError):
+        return str(result)
 
 
 @function_tool
@@ -63,7 +82,7 @@ async def list_chats() -> str:
     from bridge import bridge
 
     result = await bridge.call_extension("listChats", {})
-    return str(result)
+    return _tool_json(result)
 
 
 @function_tool
@@ -92,7 +111,7 @@ async def get_messages(
             "afterTs": after_ts,
         },
     )
-    return str(result)
+    return _tool_json(result)
 
 
 @function_tool
@@ -124,7 +143,7 @@ async def search_messages(
             "limit": min(limit, 200),
         },
     )
-    return str(result)
+    return _tool_json(result)
 
 
 @function_tool
@@ -135,7 +154,7 @@ async def get_active_chat() -> str:
     from bridge import bridge
 
     result = await bridge.call_extension("activeChat", {})
-    return str(result)
+    return _tool_json(result)
 
 
 @function_tool
@@ -179,7 +198,7 @@ async def export_chat(chat_id: str, format: str = "html") -> str:
             "format": format,
         },
     )
-    return str(result)
+    return _tool_json(result)
 
 
 # ---------------------------------------------------------------------------

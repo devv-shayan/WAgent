@@ -31,7 +31,7 @@ Be precise about this, because "private" claims are easy to overstate.
 
 | Part | Today | Notes |
 |------|-------|-------|
-| **Text agent** | **Local option available** | Set `AGENT_MODEL=ollama/<model>` and your message text stays on your machine. Cloud (Gemini) is the default. Verify with `uv run python verify_local.py`. |
+| **Text agent** | **Local option available** | Set `AGENT_MODEL=ollama_chat/<model>` and your message text stays on your machine. Cloud (Gemini) is the default. Verify with `uv run python verify_local.py`. |
 | **Media transcription** | **Cloud (Gemini) only, for now** | Voice notes, video, and images are uploaded to Google Gemini for transcription, then deleted from disk and from Gemini's API. This needs `GEMINI_API_KEY` even if the text model is local. |
 | **Message data** | **Stays in your browser + local backend** | Messages live in your WhatsApp Web session and a local SQLite DB. They're only sent to a model when the agent reads them through a tool you approved. |
 
@@ -85,14 +85,31 @@ The extension is the gatekeeper for your data:
 2. Turn on **Developer mode** (top right).
 3. Click **Load unpacked** (top left) and select this folder.
 
-### 2. Start the backend
-You need the [`uv`](https://docs.astral.sh/uv/) package manager.
+### 2. Set up the backend
+
+**Windows — one command does everything** (installs `uv` if missing, installs
+dependencies, creates `.env`, installs Ollama + the local Gemma 4 model and
+makes it the default agent model — fully local text AI out of the box — and
+sets the backend to auto-start hidden at login so it survives reboots with no
+terminal):
+
+```powershell
+cd backend
+powershell -ExecutionPolicy Bypass -File install.ps1
+```
+
+Heads-up: the local model is a **7.2 GB download**. To skip it and use cloud
+Gemini instead, run `install.ps1 -SkipLocal`. You can switch models anytime in
+the extension's Agent settings (gear icon). Undo the auto-start anytime with
+`uninstall-autostart.ps1`. Logs live in `data/backend.log`.
+
+**Manual / Mac / Linux** — you need the [`uv`](https://docs.astral.sh/uv/) package manager:
 
 ```bash
 cd backend
 cp .env.example .env          # optional: set GEMINI_API_KEY / AGENT_MODEL here
 uv sync                       # install dependencies
-uv run fastapi dev main.py    # dev server on port 8787
+uv run fastapi dev main.py --port 8787    # dev server (the extension expects port 8787)
 ```
 
 The `.env` key/model are optional — you can instead type your own API key and pick
@@ -103,8 +120,8 @@ Agent mode). Web settings override `.env`; leave them blank to use `.env`.
 
 ```bash
 # install Ollama (https://ollama.com), then:
-ollama pull llama3.1
-# in backend/.env set:  AGENT_MODEL=ollama/llama3.1
+ollama pull gemma4:e2b
+# in backend/.env set:  AGENT_MODEL=ollama_chat/gemma4:e2b
 uv run python verify_local.py   # confirms text stays on your machine
 ```
 

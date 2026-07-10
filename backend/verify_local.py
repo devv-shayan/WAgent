@@ -6,9 +6,9 @@ Runs a real completion through the SAME model string the agent uses
 
 Usage:
     # 1. Install Ollama (https://ollama.com) and pull a model:
-    ollama pull llama3.1
+    ollama pull gemma4:e2b
     # 2. Point the agent at it (in backend/.env):
-    #    AGENT_MODEL=ollama/llama3.1
+    #    AGENT_MODEL=ollama_chat/gemma4:e2b
     # 3. Run this from backend/:
     uv run python verify_local.py
 
@@ -59,7 +59,7 @@ def main() -> int:
     except Exception as e:  # noqa: BLE001 - surface the real cause to the user
         print(f"FAIL: completion errored: {type(e).__name__}: {e}")
         if is_local:
-            print("Hint: is Ollama running? Try `ollama serve` and `ollama pull llama3.1`.")
+            print("Hint: is Ollama running? Try `ollama serve` and `ollama pull gemma4:e2b`.")
         return 1
 
     text = (resp.choices[0].message.content or "").strip()
@@ -76,7 +76,7 @@ def main() -> int:
             print("NOTE: GEMINI_API_KEY is still set — only media transcription needs it now.")
     else:
         print("PASS (cloud): text path works, but this model is CLOUD-hosted.")
-        print("To go local, set AGENT_MODEL=ollama/<model> and re-run.")
+        print("To go local, set AGENT_MODEL=ollama_chat/<model> and re-run.")
     print("REMINDER: media transcription (voice/video/image) still uses Gemini cloud.")
     return 0
 

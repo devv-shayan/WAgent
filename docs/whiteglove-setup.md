@@ -94,6 +94,12 @@ alone. Run the same steps for each person and check them off.
       web.whatsapp.com in Chrome.
 - [ ] **Load the extension.** `chrome://extensions` → Developer mode on →
       Load unpacked → select the repo folder. (Ship them the folder or a zip.)
+- [ ] **Windows shortcut — one command replaces the next three steps.** In the
+      `backend` folder run `powershell -ExecutionPolicy Bypass -File install.ps1`
+      — it installs `uv`, creates `.env`, installs dependencies, and sets up
+      auto-start in one go. Then skip to "Provide the model key" (paste it into
+      `.env` or the extension's Agent settings) and "Connect". On Mac/Linux, do
+      the steps below manually.
 - [ ] **Install `uv`.** Walk them through the one-line installer from
       https://docs.astral.sh/uv/ for their OS. (It's OS-agnostic; Win/Mac/Linux
       all work.)
@@ -105,17 +111,24 @@ alone. Run the same steps for each person and check them off.
 - [ ] **Configure `.env`.** `cd backend && cp .env.example .env`, paste the key.
       Leave `AGENT_MODEL` on the cloud default for this test; local-model quality
       isn't what you're validating here.
-- [ ] **Start the backend.** `uv sync` then `uv run fastapi dev main.py`. Confirm
-      port 8787 is up.
+- [ ] **Start the backend.** `uv sync`, then on Windows run
+      `powershell -ExecutionPolicy Bypass -File install-autostart.ps1` — this
+      starts the backend hidden AND makes it auto-start at login, so it
+      survives reboots without the user touching a terminal (this was the #1
+      predicted churn cause). On Mac/Linux for now:
+      `uv run fastapi dev main.py --port 8787` + a restart note. Confirm port
+      8787 is up.
 - [ ] **Connect.** Open a chat, click the green Export/Agent button, toggle to
       Agent, confirm the status light goes green.
 - [ ] **One guided query, then stop guiding.** Have them ask ONE real question
       about a group they care about ("what happened in [group] this week?"). Let
       them feel the value once. Then stop. Do not teach them a workflow.
-- [ ] **Leave a restart note.** They'll close their laptop. Give them a dead-simple
-      note: "to use it again: run `uv run fastapi dev main.py` in the backend
-      folder, then click the green button." (This friction is itself data: if
-      restarting is too annoying, that's a finding for T5.)
+- [ ] **Verify it survives a reboot (Windows).** Before you leave, reboot their
+      machine once and confirm the backend comes back on its own (green status
+      light in the sidebar, nothing to type). If autostart couldn't be used
+      (Mac/Linux), leave a dead-simple restart note instead: "to use it again:
+      run `uv run fastapi dev main.py --port 8787` in the backend folder, then
+      click the green button" — and treat every restart complaint as T5 data.
 
 Reality check on hosting: you can't easily run one shared backend for everyone,
 because the backend rides each person's own browser session and talks to their
