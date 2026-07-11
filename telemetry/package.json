@@ -1,0 +1,10 @@
+{
+  "name": "wagent-telemetry",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Telemetry worker for WAgent",
+  "main": "src/index.js",
+  "scripts": {
+    "deploy": "wrangler deploy"
+  }
+}

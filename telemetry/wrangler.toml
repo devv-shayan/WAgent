@@ -1,0 +1,8 @@
+name = "wagent-telemetry"
+main = "src/index.js"
+compatibility_date = "2024-03-20"
+workers_dev = true
+
+[[kv_namespaces]]
+binding = "TELEMETRY_KV"
+id = "732d5ecd197b49b7969927b15727458f"

@@ -4,3 +4,7 @@ backend/.env
 backend/.venv/
 backend/__pycache__/
 *.log
+
+# Cloudflare Worker local build/account cache
+telemetry/.wrangler/
+telemetry/node_modules/
