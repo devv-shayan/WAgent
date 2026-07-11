@@ -34,6 +34,7 @@ from pydantic import BaseModel
 
 from agent import create_agent
 from bridge import bridge
+from transcribe import is_ollama_model, set_media_model_override
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -511,6 +512,14 @@ async def _run_agent(
     back to the extension via the bridge.
     """
     logger.info("Agent run started: %r", user_text[:120])
+
+    # If the web UI picked a local text model, image transcription follows
+    # it too — same "web UI wins over .env" precedence AGENT_MODEL already
+    # has. Cloud text picks don't touch MEDIA_MODEL; .env's own setting (or
+    # the cloud default) still applies for images in that case.
+    set_media_model_override(
+        model_override if model_override and is_ollama_model(model_override) else None
+    )
 
     session = SQLiteSession(SESSION_ID, SESSION_DB)
 

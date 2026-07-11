@@ -100,9 +100,13 @@ Extension ←──WebSocket──→ FastAPI ←──LiteLLM──→ Gemini (
                                     Awaits tool_result
 ```
 
-Media transcription (voice notes, video, images) is a separate path —
-always Gemini cloud today, regardless of the text model (see
-`transcribe.py`), and always needs `GEMINI_API_KEY`.
+Media transcription (voice notes, video, images) is a separate path,
+controlled by `MEDIA_MODEL` (see `transcribe.py`). Images can run fully
+local (`MEDIA_MODEL=ollama_chat/gemma4:e2b`) via Ollama's vision API. Voice
+notes and video always go to cloud Gemini regardless of `MEDIA_MODEL` —
+Ollama's own API doesn't accept audio/video input yet (tracked upstream:
+ollama/ollama#11798), so `GEMINI_API_KEY` is still required unless you never
+send voice notes or video through the agent.
 
 ## Data
 

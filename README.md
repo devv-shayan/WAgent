@@ -32,10 +32,11 @@ Be precise about this, because "private" claims are easy to overstate.
 | Part | Today | Notes |
 |------|-------|-------|
 | **Text agent** | **Local by default (Windows installer)** | `install.ps1` sets up a local model (`ollama_chat/gemma4:e2b`) as the default — your message text never leaves your machine. Manual setup (`.env.example`) defaults to cloud Gemini instead; switch either way anytime by setting `AGENT_MODEL=ollama_chat/<model>` in `.env` or the extension's Agent settings. Verify with `uv run python verify_local.py`. |
-| **Media transcription** | **Cloud (Gemini) only, for now** | Voice notes, video, and images are uploaded to Google Gemini for transcription, then deleted from disk and from Gemini's API. This needs `GEMINI_API_KEY` even if the text model is local. |
+| **Media transcription — images** | **Local, opt-in** | Set `MEDIA_MODEL=ollama_chat/gemma4:e2b` and images are described entirely on your machine via Ollama. No key, nothing uploaded. |
+| **Media transcription — voice notes & video** | **Cloud (Gemini) only, for now** | Uploaded to Google Gemini for transcription, then deleted from disk and from Gemini's API. Needs `GEMINI_API_KEY`, even if `MEDIA_MODEL` is local — Ollama's own API doesn't yet accept audio/video as input (Gemma 4 the model can handle it; Ollama's API can't yet), so this falls back to cloud regardless. |
 | **Message data** | **Stays in your browser + local backend** | Messages live in your WhatsApp Web session and a local SQLite DB. They're only sent to a model when the agent reads them through a tool you approved. |
 
-**Shipped:** the local text agent (Gemma 4 via Ollama, `ollama_chat/gemma4:e2b`) — the Windows installer sets this as the default. **On the roadmap:** wiring that same local model into media transcription (Gemma 4 also supports images, audio, and video). It's technically possible today but not wired up yet, and a small on-device model transcribes less accurately than cloud Gemini, so it'll be a privacy-vs-quality choice, not a strict upgrade. Until then, media transcription is cloud-only, regardless of which text model you use.
+**Shipped:** the local text agent (Gemma 4 via Ollama, default `ollama_chat/gemma4:e2b`), and local image description (`MEDIA_MODEL=ollama_chat/gemma4:e2b`, opt-in — the installer doesn't set this by default yet). **Still cloud-only:** voice notes and video, because Ollama's API doesn't support audio/video input yet. That's an Ollama limitation, not a Gemma 4 one, and it's out of this project's hands until Ollama ships it.
 
 ---
 
@@ -146,7 +147,8 @@ Note: media transcription still uses Gemini even with a local text model (see th
 - [x] Multimodal transcription (voice, video, images) — via cloud Gemini
 - [x] Structured memory: markdown context compaction
 - [x] Local text model option (Ollama via LiteLLM)
-- [ ] Fully-local media transcription (Gemma 4 on Ollama)
+- [x] Local image description (Ollama, opt-in via `MEDIA_MODEL`)
+- [ ] Local voice note / video transcription — blocked on Ollama's API adding audio/video input support
 - [ ] Lower-friction first-run setup
 
 ## Telemetry
