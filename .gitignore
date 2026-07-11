@@ -8,3 +8,4 @@ backend/__pycache__/
 # Cloudflare Worker local build/account cache
 telemetry/.wrangler/
 telemetry/node_modules/
+telemetry/.env
