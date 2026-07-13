@@ -957,6 +957,14 @@ body:not(.dark):not(.theme-dark) #wa-backup-btn:hover {
   padding: var(--wab-space-md);
   border-bottom: 1px solid var(--wab-border);
   background-color: var(--wab-bg-panel);
+  /* Fills the sidebar body while open — content.js hides the welcome/
+     suggestions view underneath at the same time, so there's no reason for
+     this to stop at its own content height. */
+  flex: 1;
+}
+/* The welcome/suggested-questions view, hidden while settings is open. */
+#wa-backup-sidebar .wab-chat-container.hidden {
+  display: none;
 }
 #wa-backup-sidebar .wab-agent-settings.collapsed {
   display: none;
@@ -1009,6 +1017,76 @@ body:not(.dark):not(.theme-dark) #wa-backup-btn:hover {
 }
 #wa-backup-sidebar .wab-provider-row button:hover {
   background-color: var(--wab-accent-teal-hover);
+}
+/* Danger buttons — outlined secondary actions, deliberately less prominent
+   than the teal "Refresh models" button since they're rarer and destructive
+   (reset permissions, clear session/long-term memory). Shared by all three
+   so a future one doesn't need its own copy of this block. */
+#wa-backup-sidebar .wab-danger-btn {
+  width: 100%;
+  padding: var(--wab-space-sm) var(--wab-space-md);
+  background-color: transparent;
+  color: var(--wab-danger);
+  border: 1px solid var(--wab-danger);
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: var(--wab-font-family);
+  cursor: pointer;
+  margin-bottom: var(--wab-space-sm);
+}
+#wa-backup-sidebar .wab-danger-btn:hover {
+  background-color: var(--wab-danger);
+  color: #ffffff;
+}
+
+/* Memory viewer — label + small "View" toggle button per section, and the
+   scrollable read-only block that reveals the actual content. */
+#wa-backup-sidebar .wab-memory-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--wab-space-sm);
+}
+#wa-backup-sidebar .wab-memory-label {
+  font-size: 12px;
+  color: var(--wab-text-secondary);
+}
+#wa-backup-sidebar .wab-mini-btn {
+  flex-shrink: 0;
+  padding: 4px var(--wab-space-sm);
+  background-color: transparent;
+  color: var(--wab-accent-teal);
+  border: 1px solid var(--wab-accent-teal);
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: var(--wab-font-family);
+  cursor: pointer;
+}
+#wa-backup-sidebar .wab-mini-btn:hover {
+  background-color: var(--wab-accent-teal);
+  color: #ffffff;
+}
+#wa-backup-sidebar .wab-mini-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+#wa-backup-sidebar .wab-memory-content {
+  max-height: 200px;
+  overflow-y: auto;
+  margin: var(--wab-space-xs) 0;
+  padding: var(--wab-space-sm);
+  background-color: var(--wab-bg-deeper);
+  border: 1px solid var(--wab-border);
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--wab-text-secondary);
+}
+#wa-backup-sidebar .wab-memory-content.hidden {
+  display: none;
 }
 #wa-backup-sidebar #wab-agent-models-status {
   min-height: 14px;

@@ -180,6 +180,23 @@
             models" to load the real, current models for your key (Gemini) or what's actually
             pulled (Ollama) — no guessing which model names are still valid.
             Web settings override .env. Leave everything blank to use the backend's .env.</div>
+          <div class="wab-sub-title">Permissions</div>
+          <button type="button" id="wab-agent-reset-permissions" class="wab-danger-btn">Reset all chat permissions</button>
+          <div class="wab-hint" id="wab-agent-reset-status">Clears every "Always allow" grant — the agent will ask again before reading any chat.</div>
+          <div class="wab-sub-title">Memory</div>
+          <div class="wab-memory-row">
+            <span class="wab-memory-label">Short-term (this session)</span>
+            <button type="button" id="wab-memory-session-view" class="wab-mini-btn">View</button>
+          </div>
+          <pre id="wab-memory-session-content" class="wab-memory-content hidden"></pre>
+          <button type="button" id="wab-memory-session-clear" class="wab-danger-btn">Clear session memory</button>
+          <div class="wab-memory-row">
+            <span class="wab-memory-label">Long-term (memory.md)</span>
+            <button type="button" id="wab-memory-longterm-view" class="wab-mini-btn">View</button>
+          </div>
+          <pre id="wab-memory-longterm-content" class="wab-memory-content hidden"></pre>
+          <button type="button" id="wab-memory-longterm-clear" class="wab-danger-btn">Clear long-term memory</button>
+          <div class="wab-hint" id="wab-memory-status">Short-term is what the agent remembers in this session (clears automatically as it gets long). Long-term is the editable summary in memory.md that survives across sessions.</div>
         </div>
         <div class="wab-chat-container">
           <div id="wab-agent-welcome" class="wab-agent-welcome">
@@ -268,9 +285,18 @@
     });
 
     // Agent settings panel: gear toggles it; fields persist to storage and are
-    // sent with each agent message (web overrides .env).
+    // sent with each agent message (web overrides .env). While settings is
+    // open, it takes the full height of the sidebar — the welcome/suggested-
+    // questions view and the message input bar underneath it are both
+    // hidden, since typing a message or seeing suggestions doesn't make
+    // sense while you're looking at settings.
     document.getElementById("wab-agent-settings-toggle")?.addEventListener("click", () => {
-      document.getElementById("wab-agent-settings")?.classList.toggle("collapsed");
+      const settingsEl = document.getElementById("wab-agent-settings");
+      const chatContainerEl = document.querySelector("#wab-agent-container .wab-chat-container");
+      const inputBarEl = document.getElementById("wab-agent-input-bar");
+      const nowCollapsed = settingsEl?.classList.toggle("collapsed");
+      chatContainerEl?.classList.toggle("hidden", !nowCollapsed);
+      inputBarEl?.classList.toggle("hidden", !nowCollapsed);
     });
     const agentKeyEl = document.getElementById("wab-agent-key");
     const agentProviderEl = document.getElementById("wab-agent-provider");
@@ -295,6 +321,24 @@
       refreshAgentModels();
       updateModelStatus();
     });
+    document.getElementById("wab-agent-reset-permissions")?.addEventListener("click", () => {
+      const statusEl = document.getElementById("wab-agent-reset-status");
+      chrome.storage.local.remove("chatGrants", () => {
+        if (statusEl) {
+          statusEl.textContent = "Done — every chat will ask for permission again.";
+          setTimeout(() => {
+            if (statusEl.textContent === "Done — every chat will ask for permission again.") {
+              statusEl.textContent =
+                'Clears every "Always allow" grant — the agent will ask again before reading any chat.';
+            }
+          }, 4000);
+        }
+      });
+    });
+    document.getElementById("wab-memory-session-view")?.addEventListener("click", viewSessionMemory);
+    document.getElementById("wab-memory-session-clear")?.addEventListener("click", clearSessionMemory);
+    document.getElementById("wab-memory-longterm-view")?.addEventListener("click", viewLongTermMemory);
+    document.getElementById("wab-memory-longterm-clear")?.addEventListener("click", clearLongTermMemory);
 
     // Restore agent settings, then land in the last-used mode. Agent-first:
     // first-ever open defaults to Agent (the point of the product); a user who
@@ -608,8 +652,12 @@ ${rows}
       if (agentStatus) agentStatus.textContent = "";
       if (agentInput) agentInput.classList.add("hidden");
       if (agentSettingsBtn) agentSettingsBtn.style.display = "none";
-      // collapse the settings panel so it isn't open next time
+      // collapse the settings panel so it isn't open next time, and restore
+      // the welcome/suggestions view it hides while open (see the settings
+      // toggle handler) — otherwise switching back to Agent mode later would
+      // land on a blank panel.
       document.getElementById("wab-agent-settings")?.classList.add("collapsed");
+      document.querySelector("#wab-agent-container .wab-chat-container")?.classList.remove("hidden");
       if (localContent) localContent.style.display = "flex";
       if (localStatus) localStatus.style.display = "";
       if (titleDot) {
@@ -719,6 +767,125 @@ ${rows}
     }
     if (statusEl) {
       statusEl.textContent = `${data.models.length} live models loaded from ${provider}.`;
+    }
+  }
+
+  // --- Memory viewer/clear -----------------------------------------------------
+  // Short-term = the raw conversation in SQLiteSession (data/sessions.db),
+  // what the agent literally remembers this session. Long-term = memory.md,
+  // the editable summary that survives across sessions. "View" toggles a
+  // fetch-and-reveal <pre> block; "Clear" wipes that store on the backend.
+  // Both actions are destructive and can't be undone, hence the confirm().
+
+  async function viewSessionMemory() {
+    const btn = document.getElementById("wab-memory-session-view");
+    const contentEl = document.getElementById("wab-memory-session-content");
+    if (!btn || !contentEl) return;
+
+    if (!contentEl.classList.contains("hidden")) {
+      contentEl.classList.add("hidden");
+      btn.textContent = "View";
+      return;
+    }
+
+    btn.textContent = "Loading…";
+    btn.disabled = true;
+    try {
+      const res = await fetch("http://127.0.0.1:8787/memory/session");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      contentEl.textContent =
+        data.lines && data.lines.length
+          ? data.lines.join("\n\n")
+          : "(empty — no messages in this session yet)";
+      contentEl.classList.remove("hidden");
+      btn.textContent = "Hide";
+    } catch (e) {
+      console.error(TAG, "session memory fetch failed:", e);
+      contentEl.textContent = "Could not reach the backend.";
+      contentEl.classList.remove("hidden");
+      btn.textContent = "Hide";
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function clearSessionMemory() {
+    if (
+      !confirm(
+        "Clear short-term session memory? The agent will forget the current conversation. This can't be undone."
+      )
+    ) {
+      return;
+    }
+    const statusEl = document.getElementById("wab-memory-status");
+    try {
+      const res = await fetch("http://127.0.0.1:8787/memory/session/clear", { method: "POST" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (statusEl) statusEl.textContent = "Short-term memory cleared.";
+      const contentEl = document.getElementById("wab-memory-session-content");
+      if (contentEl && !contentEl.classList.contains("hidden")) {
+        contentEl.textContent = "(empty — no messages in this session yet)";
+      }
+    } catch (e) {
+      console.error(TAG, "session memory clear failed:", e);
+      if (statusEl) statusEl.textContent = "Could not reach the backend to clear session memory.";
+    }
+  }
+
+  async function viewLongTermMemory() {
+    const btn = document.getElementById("wab-memory-longterm-view");
+    const contentEl = document.getElementById("wab-memory-longterm-content");
+    if (!btn || !contentEl) return;
+
+    if (!contentEl.classList.contains("hidden")) {
+      contentEl.classList.add("hidden");
+      btn.textContent = "View";
+      return;
+    }
+
+    btn.textContent = "Loading…";
+    btn.disabled = true;
+    try {
+      const res = await fetch("http://127.0.0.1:8787/memory/long-term");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      contentEl.textContent =
+        data.content && data.content.trim()
+          ? data.content
+          : "(empty — nothing saved to long-term memory yet)";
+      contentEl.classList.remove("hidden");
+      btn.textContent = "Hide";
+    } catch (e) {
+      console.error(TAG, "long-term memory fetch failed:", e);
+      contentEl.textContent = "Could not reach the backend.";
+      contentEl.classList.remove("hidden");
+      btn.textContent = "Hide";
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function clearLongTermMemory() {
+    if (
+      !confirm(
+        "Clear long-term memory (memory.md)? This erases everything the agent has learned across past sessions. This can't be undone."
+      )
+    ) {
+      return;
+    }
+    const statusEl = document.getElementById("wab-memory-status");
+    try {
+      const res = await fetch("http://127.0.0.1:8787/memory/long-term/clear", { method: "POST" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (statusEl) statusEl.textContent = "Long-term memory cleared.";
+      const contentEl = document.getElementById("wab-memory-longterm-content");
+      if (contentEl && !contentEl.classList.contains("hidden")) {
+        contentEl.textContent = "(empty — nothing saved to long-term memory yet)";
+      }
+    } catch (e) {
+      console.error(TAG, "long-term memory clear failed:", e);
+      if (statusEl) statusEl.textContent = "Could not reach the backend to clear long-term memory.";
     }
   }
 

@@ -9,3 +9,6 @@ backend/__pycache__/
 telemetry/.wrangler/
 telemetry/node_modules/
 telemetry/.env
+
+# Personal outreach drafts — not for a public repo
+outreach/

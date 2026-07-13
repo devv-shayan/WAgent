@@ -75,6 +75,61 @@ def _save_memory(memory_text: str) -> None:
         logger.exception("Failed to write memory.md")
 
 
+_TOOL_FRIENDLY_NAMES = {
+    "list_chats": "Listing chats",
+    "get_messages": "Fetching messages",
+    "search_messages": "Searching messages",
+    "get_active_chat": "Checking active chat",
+    "transcribe_media": "Processing media",
+    "visit_url": "Reading webpage",
+    "export_chat": "Exporting chat",
+}
+
+
+def _format_session_items(items: list) -> list[str]:
+    """Turn raw SQLiteSession items into readable 'ROLE: text' lines.
+
+    Shared by context compaction (agent-facing summary) and the
+    /memory/session viewer endpoint (human-facing display) so there's one
+    place that knows how to read the Agents SDK's item shape.
+    """
+    lines: list[str] = []
+    for item in items:
+        get_val = lambda k: item.get(k) if isinstance(item, dict) else getattr(item, k, None)  # noqa: E731
+
+        role = get_val("role") or get_val("type") or "unknown"
+        text = ""
+
+        item_text = get_val("text")
+        item_content = get_val("content")
+        item_parts = get_val("parts")
+
+        if item_text:
+            text = str(item_text)
+        elif item_content:
+            text = str(item_content)
+        elif item_parts:
+            if isinstance(item_parts, list):
+                part_texts = []
+                for p in item_parts:
+                    p_text = p.get("text") if isinstance(p, dict) else getattr(p, "text", None)
+                    part_texts.append(str(p_text) if p_text else str(p))
+                text = " ".join(part_texts)
+            else:
+                text = str(item_parts)
+
+        item_type = get_val("type")
+        if item_type in ("tool_call_item", "tool_call"):
+            tool_name = get_val("name") or "tool"
+            text = f"[Action: {_TOOL_FRIENDLY_NAMES.get(tool_name, 'Working')}]"
+        elif item_type in ("tool_response_item", "tool_response"):
+            text = "[Action Result]"
+
+        if text:
+            lines.append(f"{str(role).upper()}: {text}")
+    return lines
+
+
 async def _compact_context_if_needed(session: SQLiteSession) -> None:
     """
     Check if the conversation history exceeds 50 messages.
@@ -106,56 +161,7 @@ async def _compact_context_if_needed(session: SQLiteSession) -> None:
         to_keep = items[split_idx:]
 
         # Format messages to summarize
-        history_lines = []
-        for item in to_summarize:
-            # Helper to get value from dict or object representation
-            get_val = lambda k: item.get(k) if isinstance(item, dict) else getattr(item, k, None)
-            
-            role = get_val("role") or get_val("type") or "unknown"
-            text = ""
-            
-            item_text = get_val("text")
-            item_content = get_val("content")
-            item_parts = get_val("parts")
-            
-            if item_text:
-                text = str(item_text)
-            elif item_content:
-                text = str(item_content)
-            elif item_parts:
-                if isinstance(item_parts, list):
-                    part_texts = []
-                    for p in item_parts:
-                        p_text = p.get("text") if isinstance(p, dict) else getattr(p, "text", None)
-                        if p_text:
-                            part_texts.append(str(p_text))
-                        else:
-                            part_texts.append(str(p))
-                    text = " ".join(part_texts)
-                else:
-                    text = str(item_parts)
-            
-            # If it's a tool call/response, represent it cleanly
-            item_type = get_val("type")
-            if item_type in ("tool_call_item", "tool_call"):
-                tool_name = get_val("name") or "tool"
-                friendly = {
-                    "list_chats": "Listing chats",
-                    "get_messages": "Fetching messages",
-                    "search_messages": "Searching messages",
-                    "get_active_chat": "Checking active chat",
-                    "transcribe_media": "Processing media",
-                    "visit_url": "Reading webpage",
-                    "export_chat": "Exporting chat",
-                }.get(tool_name, "Working")
-                text = f"[Action: {friendly}]"
-            elif item_type in ("tool_response_item", "tool_response"):
-                text = f"[Action Result]"
-
-            if text:
-                history_lines.append(f"{str(role).upper()}: {text}")
-
-        history_text = "\n".join(history_lines)
+        history_text = "\n".join(_format_session_items(to_summarize))
 
         # Load existing memory
         existing_memory = _load_memory()
@@ -415,6 +421,57 @@ async def get_model_status(request: Request, model: str | None = None) -> dict:
             "error": str(e)
         }
 
+
+# ---------------------------------------------------------------------------
+# Memory viewer/clear — short-term (SQLiteSession) and long-term (memory.md)
+# ---------------------------------------------------------------------------
+# Lets the web UI show the user what the agent actually remembers, and wipe
+# either store. Same origin allow-list as every other endpoint here: this
+# reads/deletes conversation history, so it needs the same CSWSH protection
+# as the WebSocket itself.
+
+
+@app.get("/memory/session")
+async def get_session_memory(request: Request) -> dict:
+    origin = request.headers.get("origin")
+    if not _origin_allowed(origin):
+        raise HTTPException(status_code=403, detail="Origin not allowed")
+
+    session = SQLiteSession(SESSION_ID, SESSION_DB)
+    items = await session.get_items()
+    return {"lines": _format_session_items(items), "raw_count": len(items)}
+
+
+@app.post("/memory/session/clear")
+async def clear_session_memory(request: Request) -> dict:
+    origin = request.headers.get("origin")
+    if not _origin_allowed(origin):
+        raise HTTPException(status_code=403, detail="Origin not allowed")
+
+    session = SQLiteSession(SESSION_ID, SESSION_DB)
+    await session.clear_session()
+    logger.info("Session memory cleared via web UI")
+    return {"cleared": True}
+
+
+@app.get("/memory/long-term")
+async def get_long_term_memory(request: Request) -> dict:
+    origin = request.headers.get("origin")
+    if not _origin_allowed(origin):
+        raise HTTPException(status_code=403, detail="Origin not allowed")
+
+    return {"content": _load_memory()}
+
+
+@app.post("/memory/long-term/clear")
+async def clear_long_term_memory(request: Request) -> dict:
+    origin = request.headers.get("origin")
+    if not _origin_allowed(origin):
+        raise HTTPException(status_code=403, detail="Origin not allowed")
+
+    _save_memory("")
+    logger.info("Long-term memory (memory.md) cleared via web UI")
+    return {"cleared": True}
 
 
 # ---------------------------------------------------------------------------
