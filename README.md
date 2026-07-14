@@ -14,6 +14,11 @@ Three things make it different from a chat summarizer:
 
 It runs *inside* your existing, already-logged-in WhatsApp Web tab. It does not link a new device, scan a QR code, or open a second session — so it behaves like you using WhatsApp Web, not like a bot logging in beside you.
 
+<p align="center">
+  <img src="assets/screenshot-agent.jpg" alt="WAgent sidebar running inside WhatsApp Web: the agent is asked about a group, and a permission prompt appears — 'Agent wants to read Trading 101' with Allow once, Always allow, and Deny buttons" width="900">
+</p>
+<p align="center"><em>The permission prompt, live: the agent can't read a chat until you say so.</em></p>
+
 ---
 
 ## What it does
