@@ -49,6 +49,18 @@ Be precise about this, because "private" claims are easy to overstate.
 
 This hooks into WhatsApp Web's front-end via [WA-JS](https://github.com/wppconnect-team/wa-js). WhatsApp ships front-end changes that can break those hooks, so expect occasional breakage after a WhatsApp update until the hooks are patched. Because it rides your existing session rather than linking a new device, account-ban risk is low — but automating WhatsApp Web is still against WhatsApp's Terms of Service, so use a personal account you're comfortable with and understand the tradeoff.
 
+When it does break, the fix is almost always a newer WA-JS. A scheduled workflow
+([`.github/workflows/update-wa-js.yml`](.github/workflows/update-wa-js.yml)) checks
+daily and opens a PR when upstream releases one. To pull it yourself without waiting:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/update-wajs.ps1   # add -Check to only look
+```
+
+Then reload the extension at `chrome://extensions` and hard-refresh the WhatsApp tab —
+content scripts don't swap in an already-open tab. The vendored version is recorded in
+`vendor/wa-js.version`.
+
 ---
 
 ## Two modes

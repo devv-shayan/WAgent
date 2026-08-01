@@ -1,0 +1,115 @@
+name: Update WA-JS
+
+# WA-JS hooks WhatsApp Web's internals. When WhatsApp ships a front-end change
+# it breaks those hooks, and the fix arrives as a WA-JS release — so watch for
+# new releases daily and open a PR. Deliberately a PR and not a direct push:
+# a WA-JS bump is the single change most likely to break this extension, so it
+# gets reviewed and smoke-tested against a real WhatsApp Web tab before landing.
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for a newer WA-JS release
+        id: check
+        run: |
+          set -euo pipefail
+          current="$(tr -d '[:space:]' < vendor/wa-js.version)"
+          release="$(curl -sSfL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            https://api.github.com/repos/wppconnect-team/wa-js/releases/latest)"
+
+          latest="$(jq -r '.tag_name | ltrimstr("v")' <<<"$release")"
+          url="$(jq -r '.assets[] | select(.name == "wppconnect-wa.js") | .browser_download_url' <<<"$release")"
+
+          echo "vendored: $current / latest: $latest"
+
+          if [ "$current" = "$latest" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$url" ]; then
+            echo "::error::release v$latest has no wppconnect-wa.js asset"
+            exit 1
+          fi
+
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "notes_url=$(jq -r '.html_url' <<<"$release")" >> "$GITHUB_OUTPUT"
+          jq -r '.body' <<<"$release" > /tmp/release-notes.md
+
+          curl -sSfL "$url" -o /tmp/wppconnect-wa.js
+
+          # Sanity-check before overwriting. A truncated download or an error
+          # page here would silently break every chat read the extension does.
+          size="$(stat -c%s /tmp/wppconnect-wa.js)"
+          if [ "$size" -lt 100000 ]; then
+            echo "::error::downloaded bundle is only $size bytes — looks truncated"
+            exit 1
+          fi
+          if ! grep -q 'window\.WPP' /tmp/wppconnect-wa.js; then
+            echo "::error::downloaded bundle has no window.WPP — not a WA-JS build"
+            exit 1
+          fi
+
+          cp /tmp/wppconnect-wa.js vendor/wppconnect-wa.js
+          printf '%s\n' "$latest" > vendor/wa-js.version
+
+      - name: Open pull request
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT: ${{ steps.check.outputs.current }}
+          LATEST: ${{ steps.check.outputs.latest }}
+          NOTES_URL: ${{ steps.check.outputs.notes_url }}
+        run: |
+          set -euo pipefail
+          branch="chore/wa-js-$LATEST"
+
+          if gh pr list --head "$branch" --state open --json number | jq -e 'length > 0' > /dev/null; then
+            echo "PR for $branch is already open — nothing to do."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add vendor/wppconnect-wa.js vendor/wa-js.version
+          git commit -m "chore(vendor): update WA-JS $CURRENT -> $LATEST"
+          git push -u origin "$branch"
+
+          {
+            echo "Vendored WA-JS \`$CURRENT\` → \`$LATEST\`."
+            echo
+            echo "**Before merging**, smoke-test against a live WhatsApp Web tab —"
+            echo "load the extension unpacked, open a chat, and confirm the sidebar"
+            echo "connects and can read messages. WA-JS bumps are the change most"
+            echo "likely to break this extension."
+            echo
+            echo "Upstream release notes: $NOTES_URL"
+            echo
+            echo "<details><summary>Changelog</summary>"
+            echo
+            cat /tmp/release-notes.md
+            echo
+            echo "</details>"
+          } > /tmp/pr-body.md
+
+          gh pr create \
+            --title "chore(vendor): update WA-JS $CURRENT -> $LATEST" \
+            --body-file /tmp/pr-body.md \
+            --base "${{ github.event.repository.default_branch }}" \
+            --head "$branch"
