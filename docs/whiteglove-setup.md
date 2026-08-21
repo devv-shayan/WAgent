@@ -93,7 +93,7 @@ alone. Run the same steps for each person and check them off.
 - [ ] **Chrome + WhatsApp Web working.** They're already logged into
       web.whatsapp.com in Chrome.
 - [ ] **Load the extension.** `chrome://extensions` → Developer mode on →
-      Load unpacked → select the repo folder. (Ship them the folder or a zip.)
+      Load unpacked → select the `extension` folder. (Ship them that folder or a zip of it — never the repo root, which holds your `.env` files and local data.)
 - [ ] **Windows — one command sets up the backend + auto-start.** In the
       `backend` folder run:
       `powershell -ExecutionPolicy Bypass -File install.ps1 -SkipLocal`

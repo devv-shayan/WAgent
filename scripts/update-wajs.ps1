@@ -1,4 +1,4 @@
-# Updates vendor/wppconnect-wa.js to the latest WA-JS release.
+# Updates extension/vendor/wppconnect-wa.js to the latest WA-JS release.
 #
 #   powershell -ExecutionPolicy Bypass -File scripts/update-wajs.ps1
 #   ... -Check    # report only, change nothing
@@ -16,8 +16,8 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot    = Split-Path -Parent $PSScriptRoot
-$bundlePath  = Join-Path $repoRoot "vendor\wppconnect-wa.js"
-$versionPath = Join-Path $repoRoot "vendor\wa-js.version"
+$bundlePath  = Join-Path $repoRoot "extension\vendor\wppconnect-wa.js"
+$versionPath = Join-Path $repoRoot "extension\vendor\wa-js.version"
 
 $current = if (Test-Path $versionPath) { (Get-Content $versionPath -Raw).Trim() } else { "unknown" }
 

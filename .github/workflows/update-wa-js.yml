@@ -25,7 +25,7 @@ jobs:
         id: check
         run: |
           set -euo pipefail
-          current="$(tr -d '[:space:]' < vendor/wa-js.version)"
+          current="$(tr -d '[:space:]' < extension/vendor/wa-js.version)"
           release="$(curl -sSfL \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ github.token }}" \
@@ -65,8 +65,8 @@ jobs:
             exit 1
           fi
 
-          cp /tmp/wppconnect-wa.js vendor/wppconnect-wa.js
-          printf '%s\n' "$latest" > vendor/wa-js.version
+          cp /tmp/wppconnect-wa.js extension/vendor/wppconnect-wa.js
+          printf '%s\n' "$latest" > extension/vendor/wa-js.version
 
       - name: Open pull request
         if: steps.check.outputs.changed == 'true'
@@ -91,7 +91,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          git add vendor/wppconnect-wa.js vendor/wa-js.version
+          git add extension/vendor/wppconnect-wa.js extension/vendor/wa-js.version
           git commit -m "chore(vendor): update WA-JS $CURRENT -> $LATEST"
 
           # The branch can be on the remote with no PR behind it: an earlier run
