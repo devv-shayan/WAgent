@@ -79,8 +79,12 @@ jobs:
           set -euo pipefail
           branch="chore/wa-js-$LATEST"
 
-          if gh pr list --head "$branch" --state open --json number | jq -e 'length > 0' > /dev/null; then
-            echo "PR for $branch is already open — nothing to do."
+          # Any PR for this branch means the bump has already been raised: open
+          # is waiting on review, closed means someone looked and said no. Don't
+          # re-raise either one. (A merged one can't reach here — main would
+          # already carry $LATEST and the check step would have stopped.)
+          if gh pr list --head "$branch" --state all --json number | jq -e 'length > 0' > /dev/null; then
+            echo "A PR for $branch already exists — nothing to do."
             exit 0
           fi
 
@@ -89,7 +93,18 @@ jobs:
           git checkout -b "$branch"
           git add vendor/wppconnect-wa.js vendor/wa-js.version
           git commit -m "chore(vendor): update WA-JS $CURRENT -> $LATEST"
-          git push -u origin "$branch"
+
+          # The branch can be on the remote with no PR behind it: an earlier run
+          # pushed it and then failed to open the PR. Replace that leftover
+          # instead of dying on a non-fast-forward every day afterwards — but
+          # lease it against the exact commit we just saw, so a branch someone
+          # else is pushing to is never clobbered.
+          if leftover="$(git ls-remote --exit-code --heads origin "$branch" | cut -f1)"; then
+            echo "$branch is on the remote with no PR — replacing leftover $leftover."
+            git push --force-with-lease="$branch:$leftover" -u origin "$branch"
+          else
+            git push -u origin "$branch"
+          fi
 
           {
             echo "Vendored WA-JS \`$CURRENT\` → \`$LATEST\`."
