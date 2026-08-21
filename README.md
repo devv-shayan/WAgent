@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="WAgent Logo" width="96" height="96">
+  <img src="extension/assets/logo.svg" alt="WAgent Logo" width="96" height="96">
 </p>
 
 # WAgent — WhatsApp agent that asks before it reads
@@ -15,7 +15,7 @@ Three things make it different from a chat summarizer:
 It runs *inside* your existing, already-logged-in WhatsApp Web tab. It does not link a new device, scan a QR code, or open a second session — so it behaves like you using WhatsApp Web, not like a bot logging in beside you.
 
 <p align="center">
-  <img src="assets/screenshot-agent.jpg" alt="WAgent sidebar running inside WhatsApp Web: the agent is asked about a group, and a permission prompt appears — 'Agent wants to read Trading 101' with Allow once, Always allow, and Deny buttons" width="900">
+  <img src="extension/assets/screenshot-agent.jpg" alt="WAgent sidebar running inside WhatsApp Web: the agent is asked about a group, and a permission prompt appears — 'Agent wants to read Trading 101' with Allow once, Always allow, and Deny buttons" width="900">
 </p>
 <p align="center"><em>The permission prompt, live: the agent can't read a chat until you say so.</em></p>
 
@@ -59,7 +59,7 @@ powershell -ExecutionPolicy Bypass -File scripts/update-wajs.ps1   # add -Check 
 
 Then reload the extension at `chrome://extensions` and hard-refresh the WhatsApp tab —
 content scripts don't swap in an already-open tab. The vendored version is recorded in
-`vendor/wa-js.version`.
+`extension/vendor/wa-js.version`.
 
 ---
 
@@ -101,7 +101,7 @@ The extension is the gatekeeper for your data:
 ### 1. Load the extension
 1. Open Chrome and go to `chrome://extensions`.
 2. Turn on **Developer mode** (top right).
-3. Click **Load unpacked** (top left) and select this folder.
+3. Click **Load unpacked** (top left) and select the `extension` folder (not the repo root — the repo also holds the backend, your `.env` files and local data, none of which belong in the extension).
 
 ### 2. Set up the backend
 
